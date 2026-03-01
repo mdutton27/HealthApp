@@ -32,10 +32,8 @@ final class HealthKitManager: ObservableObject {
         if let glucose = HKQuantityType.quantityType(forIdentifier: .bloodGlucose) {
             types.insert(glucose)
         }
-        // Read clinical lab records if available
-        if let labType = HKObjectType.clinicalType(forIdentifier: .labResultRecord) {
-            types.insert(labType)
-        }
+        // Note: Clinical lab records (.labResultRecord) require a paid
+        // Apple Developer Program membership. Omitted for personal teams.
         return types
     }
 
@@ -104,25 +102,7 @@ final class HealthKitManager: ObservableObject {
         }
     }
 
-    // MARK: - Reading Clinical Records
-
-    func fetchClinicalLabResults() async -> [HKClinicalRecord] {
-        guard let labType = HKObjectType.clinicalType(forIdentifier: .labResultRecord) else {
-            return []
-        }
-
-        return await withCheckedContinuation { continuation in
-            let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-            let query = HKSampleQuery(
-                sampleType: labType,
-                predicate: nil,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [sort]
-            ) { _, samples, _ in
-                let records = (samples as? [HKClinicalRecord]) ?? []
-                continuation.resume(returning: records)
-            }
-            healthStore.execute(query)
-        }
-    }
+    // Note: Reading clinical records (HKClinicalRecord.labResultRecord)
+    // requires a paid Apple Developer Program membership.
+    // Can be re-enabled later if you upgrade your account.
 }

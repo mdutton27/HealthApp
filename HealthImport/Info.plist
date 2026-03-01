@@ -24,8 +24,6 @@
 	<string>This app reads your health records to display existing lab results alongside imported data.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>This app writes imported lab results (such as blood glucose) to Apple Health so they appear alongside your other health data.</string>
-	<key>NSHealthClinicalHealthRecordsShareUsageDescription</key>
-	<string>This app reads clinical lab records from your connected healthcare providers to display them alongside your imported results.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
