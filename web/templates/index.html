@@ -9,7 +9,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
   <style>
-    .drop-active { border-color: #3b82f6 !important; background-color: #eff6ff !important; }
+    .drop-active { border-color: #3b82f6 !important; background-color: rgba(59,130,246,0.05) !important; }
+    .group-header { user-select: none; }
+    .group-header:hover { background-color: rgba(255,255,255,0.03); }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
@@ -35,12 +37,11 @@
     <!-- Main Content (hidden until file loaded) -->
     <div id="mainContent" class="hidden">
 
-      <!-- Controls Row -->
-      <div class="flex flex-wrap gap-4 items-start mb-6">
+      <div class="flex flex-wrap gap-4 items-start">
 
-        <!-- Test Selector -->
-        <div class="flex-1 min-w-[280px]">
-          <div class="bg-gray-900 rounded-xl border border-gray-800 p-4 max-h-[500px] overflow-y-auto">
+        <!-- Test Selector (by Test Group) -->
+        <div class="w-80 shrink-0">
+          <div class="bg-gray-900 rounded-xl border border-gray-800 p-4 max-h-[600px] overflow-y-auto">
             <div class="flex items-center justify-between mb-3">
               <h2 class="font-semibold text-lg">Select Tests</h2>
               <div class="flex gap-2">
@@ -50,12 +51,10 @@
             </div>
             <div id="testSelector"></div>
           </div>
-        </div>
 
-        <!-- Axis Controls -->
-        <div class="w-72">
-          <div class="bg-gray-900 rounded-xl border border-gray-800 p-4">
-            <h2 class="font-semibold text-lg mb-3">Y-Axis Units</h2>
+          <!-- Axis Controls -->
+          <div class="bg-gray-900 rounded-xl border border-gray-800 p-4 mt-4">
+            <h2 class="font-semibold text-sm mb-3">Y-Axis Units</h2>
             <div class="space-y-3">
               <div>
                 <label class="text-xs text-gray-400 block mb-1">Left Axis</label>
@@ -72,26 +71,25 @@
               </button>
             </div>
           </div>
+        </div>
 
+        <!-- Chart + Legend -->
+        <div class="flex-1 min-w-0">
           <!-- Legend -->
-          <div class="bg-gray-900 rounded-xl border border-gray-800 p-4 mt-4">
-            <h2 class="font-semibold text-sm mb-2">Legend</h2>
-            <div id="chartLegend" class="space-y-1 text-xs max-h-[200px] overflow-y-auto"></div>
+          <div id="chartLegend" class="flex flex-wrap gap-3 mb-3 text-xs"></div>
+          <!-- Chart -->
+          <div class="bg-gray-900 rounded-xl border border-gray-800 p-4">
+            <canvas id="labChart" height="450"></canvas>
           </div>
         </div>
-      </div>
 
-      <!-- Chart -->
-      <div class="bg-gray-900 rounded-xl border border-gray-800 p-4">
-        <canvas id="labChart" height="400"></canvas>
       </div>
-
     </div>
   </main>
 
 <script>
 // ─── State ──────────────────────────────────────────────────────────
-let labData = {};       // { unit: { testName: [{date, value, refLow, refHigh, group}] } }
+let rawResults = [];    // flat array from backend
 let chart = null;
 
 const COLORS = [
@@ -128,10 +126,9 @@ async function handleFile(file) {
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
-    labData = data.tests;
+    rawResults = data.results;
     uploadStatus.className = 'mt-3 text-sm text-green-400';
-    const totalTests = Object.values(labData).reduce((sum, g) => sum + Object.keys(g).length, 0);
-    uploadStatus.textContent = `✓ Loaded ${totalTests} tests from ${file.name}`;
+    uploadStatus.textContent = `✓ Loaded ${rawResults.length} results from ${file.name}`;
 
     buildUI();
     document.getElementById('mainContent').classList.remove('hidden');
@@ -141,70 +138,117 @@ async function handleFile(file) {
   }
 }
 
-// ─── Build Test Selector & Axis Dropdowns ───────────────────────────
+// ─── Build Grouped Test Selector ────────────────────────────────────
+
+function getTestGroups() {
+  // Build: { groupName: { testName: { unit, readings: [...], refLow, refHigh } } }
+  const groups = {};
+  for (const r of rawResults) {
+    if (!groups[r.testGroup]) groups[r.testGroup] = {};
+    if (!groups[r.testGroup][r.testName]) {
+      groups[r.testGroup][r.testName] = { unit: r.unit, readings: [], refLow: r.refLow, refHigh: r.refHigh };
+    }
+    groups[r.testGroup][r.testName].readings.push({ date: r.date, value: r.value });
+  }
+  return groups;
+}
+
 function buildUI() {
+  const groups = getTestGroups();
   const selector = document.getElementById('testSelector');
   selector.innerHTML = '';
 
-  const units = Object.keys(labData).sort();
+  const sortedGroups = Object.keys(groups).sort();
 
-  units.forEach(unit => {
-    const tests = Object.keys(labData[unit]).sort();
+  sortedGroups.forEach(groupName => {
+    const tests = groups[groupName];
+    const testNames = Object.keys(tests).sort();
+    const safeGroup = groupName.replace(/[^a-zA-Z0-9]/g, '_');
+
+    // Group header with collapse toggle
     const groupDiv = document.createElement('div');
-    groupDiv.className = 'mb-4';
+    groupDiv.className = 'mb-3';
     groupDiv.innerHTML = `
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs font-bold text-blue-400 uppercase tracking-wide">${unit}</span>
-        <div class="flex gap-1">
-          <button onclick="toggleGroup('${unit}', true)" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400">all</button>
-          <button onclick="toggleGroup('${unit}', false)" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400">none</button>
+      <div class="group-header flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer"
+           onclick="toggleGroupCollapse('${safeGroup}')">
+        <div class="flex items-center gap-2">
+          <span id="arrow_${safeGroup}" class="text-gray-500 text-xs transition-transform">▶</span>
+          <span class="text-sm font-semibold text-blue-400">${groupName}</span>
+          <span class="text-xs text-gray-500">(${testNames.length})</span>
+        </div>
+        <div class="flex gap-1" onclick="event.stopPropagation()">
+          <button onclick="toggleGroupTests('${safeGroup}', true)" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400">all</button>
+          <button onclick="toggleGroupTests('${safeGroup}', false)" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400">none</button>
         </div>
       </div>
+      <div id="group_${safeGroup}" class="hidden pl-6 mt-1 space-y-0.5">
+        ${testNames.map(tn => {
+          const info = tests[tn];
+          const id = `chk_${safeGroup}_${tn.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          return `
+            <label class="flex items-center gap-2 py-0.5 px-1 rounded hover:bg-gray-800 cursor-pointer text-sm">
+              <input type="checkbox" id="${id}"
+                     data-group="${groupName}" data-test="${tn}" data-unit="${info.unit}"
+                     data-reflow="${info.refLow ?? ''}" data-refhigh="${info.refHigh ?? ''}"
+                     onchange="onTestToggle()" class="accent-blue-500 rounded">
+              <span>${tn}</span>
+              <span class="text-gray-500 text-xs ml-auto">${info.unit}</span>
+            </label>
+          `;
+        }).join('')}
+      </div>
     `;
-    tests.forEach(test => {
-      const id = `chk_${unit}_${test}`.replace(/[^a-zA-Z0-9]/g, '_');
-      const label = document.createElement('label');
-      label.className = 'flex items-center gap-2 py-0.5 px-1 rounded hover:bg-gray-800 cursor-pointer text-sm';
-      label.innerHTML = `
-        <input type="checkbox" id="${id}" data-unit="${unit}" data-test="${test}"
-               onchange="updateChart()" class="accent-blue-500 rounded">
-        <span>${test}</span>
-        <span class="text-gray-500 text-xs ml-auto">${labData[unit][test].length} pts</span>
-      `;
-      groupDiv.appendChild(label);
-    });
     selector.appendChild(groupDiv);
   });
 
-  // Populate axis dropdowns
+  // Build axis unit dropdowns from all unique units
+  const allUnits = [...new Set(rawResults.map(r => r.unit))].sort();
   const leftSel = document.getElementById('leftAxis');
   const rightSel = document.getElementById('rightAxis');
-  leftSel.innerHTML = '';
-  rightSel.innerHTML = '';
-  units.forEach((u, i) => {
-    leftSel.add(new Option(u, u, i === 0, i === 0));
-    rightSel.add(new Option(u, u, i === 1, i === 1));
+  leftSel.innerHTML = '<option value="">— none —</option>';
+  rightSel.innerHTML = '<option value="">— none —</option>';
+  allUnits.forEach(u => {
+    leftSel.add(new Option(u, u));
+    rightSel.add(new Option(u, u));
   });
+}
 
-  // Auto-select first group's tests
-  if (units.length > 0) {
-    toggleGroup(units[0], true);
+function toggleGroupCollapse(safeGroup) {
+  const el = document.getElementById(`group_${safeGroup}`);
+  const arrow = document.getElementById(`arrow_${safeGroup}`);
+  if (el.classList.contains('hidden')) {
+    el.classList.remove('hidden');
+    arrow.style.transform = 'rotate(90deg)';
+  } else {
+    el.classList.add('hidden');
+    arrow.style.transform = '';
   }
 }
 
-function toggleGroup(unit, checked) {
-  document.querySelectorAll(`input[data-unit="${unit}"]`).forEach(cb => cb.checked = checked);
-  updateChart();
+function toggleGroupTests(safeGroup, checked) {
+  // Also expand the group when selecting
+  const el = document.getElementById(`group_${safeGroup}`);
+  const arrow = document.getElementById(`arrow_${safeGroup}`);
+  if (checked && el.classList.contains('hidden')) {
+    el.classList.remove('hidden');
+    arrow.style.transform = 'rotate(90deg)';
+  }
+
+  el.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = checked);
+  onTestToggle();
 }
 
 function selectAll() {
   document.querySelectorAll('#testSelector input[type=checkbox]').forEach(cb => cb.checked = true);
-  updateChart();
+  // Expand all groups
+  document.querySelectorAll('#testSelector [id^=group_]').forEach(el => el.classList.remove('hidden'));
+  document.querySelectorAll('#testSelector [id^=arrow_]').forEach(el => el.style.transform = 'rotate(90deg)');
+  onTestToggle();
 }
 
 function selectNone() {
   document.querySelectorAll('#testSelector input[type=checkbox]').forEach(cb => cb.checked = false);
-  updateChart();
+  onTestToggle();
 }
 
 function swapAxes() {
@@ -216,27 +260,68 @@ function swapAxes() {
   updateChart();
 }
 
+// ─── Auto-detect best axis units from selection ─────────────────────
+
+function onTestToggle() {
+  // Get unique units from selected tests
+  const selected = getSelectedTests();
+  const units = [...new Set(selected.map(s => s.unit))];
+
+  // Auto-set axis dropdowns to the first 2 unique units
+  const leftSel = document.getElementById('leftAxis');
+  const rightSel = document.getElementById('rightAxis');
+
+  if (units.length >= 1) leftSel.value = units[0];
+  if (units.length >= 2) rightSel.value = units[1];
+  else rightSel.value = '';
+
+  updateChart();
+}
+
+function getSelectedTests() {
+  const selected = [];
+  document.querySelectorAll('#testSelector input[type=checkbox]:checked').forEach(cb => {
+    selected.push({
+      group: cb.dataset.group,
+      test: cb.dataset.test,
+      unit: cb.dataset.unit,
+      refLow: cb.dataset.reflow ? parseFloat(cb.dataset.reflow) : null,
+      refHigh: cb.dataset.refhigh ? parseFloat(cb.dataset.refhigh) : null,
+    });
+  });
+  return selected;
+}
+
 // ─── Chart Rendering ────────────────────────────────────────────────
+
 function updateChart() {
   const leftUnit = document.getElementById('leftAxis').value;
   const rightUnit = document.getElementById('rightAxis').value;
+  const selected = getSelectedTests();
 
-  // Gather selected tests
-  const selected = [];
-  document.querySelectorAll('#testSelector input[type=checkbox]:checked').forEach(cb => {
-    selected.push({ unit: cb.dataset.unit, test: cb.dataset.test });
-  });
+  // Filter to tests matching either axis unit
+  const visible = selected.filter(s =>
+    s.unit === leftUnit || s.unit === rightUnit
+  );
 
-  // Filter to only tests matching left or right axis
-  const visible = selected.filter(s => s.unit === leftUnit || s.unit === rightUnit);
+  // Build lookup: testName -> readings
+  const groups = getTestGroups();
+  const testReadings = {};
+  for (const g of Object.values(groups)) {
+    for (const [tn, info] of Object.entries(g)) {
+      testReadings[tn] = info.readings;
+    }
+  }
 
   // Build datasets
   const datasets = [];
   const annotations = {};
   let colorIdx = 0;
 
-  visible.forEach(({ unit, test }) => {
-    const readings = labData[unit][test];
+  visible.forEach(({ test, unit, refLow, refHigh }) => {
+    const readings = testReadings[test] || [];
+    if (!readings.length) return;
+
     const color = COLORS[colorIdx % COLORS.length];
     const isRight = unit === rightUnit && leftUnit !== rightUnit;
 
@@ -253,18 +338,15 @@ function updateChart() {
     });
 
     // Reference range band
-    if (readings.length > 0 && readings[0].refLow != null && readings[0].refHigh != null) {
-      annotations[`ref_${test}`] = {
+    if (refLow != null && refHigh != null) {
+      annotations[`ref_${test.replace(/\s/g, '_')}`] = {
         type: 'box',
-        yMin: readings[0].refLow,
-        yMax: readings[0].refHigh,
+        yMin: refLow,
+        yMax: refHigh,
         yScaleID: isRight ? 'yRight' : 'yLeft',
         backgroundColor: color + '0D',
         borderColor: color + '30',
         borderWidth: 1,
-        label: {
-          display: false,
-        }
       };
     }
 
@@ -273,19 +355,26 @@ function updateChart() {
 
   // Update legend
   const legendDiv = document.getElementById('chartLegend');
-  legendDiv.innerHTML = '';
-  datasets.forEach((ds, i) => {
-    const dot = `<span class="inline-block w-2.5 h-2.5 rounded-full mr-1.5" style="background:${ds.borderColor}"></span>`;
-    const side = ds.yAxisID === 'yRight' ? '(R)' : '(L)';
-    legendDiv.innerHTML += `<div class="flex items-center">${dot}${ds.label} <span class="text-gray-500 ml-auto">${side}</span></div>`;
-  });
+  legendDiv.innerHTML = datasets.map(ds => {
+    const side = ds.yAxisID === 'yRight' ? 'R' : 'L';
+    return `<span class="flex items-center gap-1.5 bg-gray-900 border border-gray-800 rounded-full px-3 py-1">
+      <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${ds.borderColor}"></span>
+      ${ds.label}
+      <span class="text-gray-500">${side}</span>
+    </span>`;
+  }).join('');
 
-  // Determine if both axes are needed
   const hasLeft = datasets.some(d => d.yAxisID === 'yLeft');
   const hasRight = datasets.some(d => d.yAxisID === 'yRight');
 
   // Destroy old chart
   if (chart) chart.destroy();
+
+  if (!datasets.length) {
+    const ctx = document.getElementById('labChart').getContext('2d');
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    return;
+  }
 
   const ctx = document.getElementById('labChart').getContext('2d');
   chart = new Chart(ctx, {
@@ -294,10 +383,7 @@ function updateChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: {
-        mode: 'nearest',
-        intersect: false,
-      },
+      interaction: { mode: 'nearest', intersect: false },
       plugins: {
         legend: { display: false },
         annotation: { annotations },
@@ -323,7 +409,7 @@ function updateChart() {
           type: 'linear',
           position: 'left',
           display: hasLeft,
-          title: { display: true, text: leftUnit, color: '#60a5fa' },
+          title: { display: hasLeft, text: leftUnit, color: '#60a5fa', font: { size: 14, weight: 'bold' } },
           grid: { color: '#1f2937' },
           ticks: { color: '#60a5fa' },
         },
@@ -331,7 +417,7 @@ function updateChart() {
           type: 'linear',
           position: 'right',
           display: hasRight && leftUnit !== rightUnit,
-          title: { display: true, text: rightUnit, color: '#f87171' },
+          title: { display: hasRight, text: rightUnit, color: '#f87171', font: { size: 14, weight: 'bold' } },
           grid: { drawOnChartArea: false },
           ticks: { color: '#f87171' },
         }

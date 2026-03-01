@@ -37,25 +37,26 @@ def upload():
 
     try:
         if filename.endswith(".xml"):
-            tests = parse_xml(content)
+            results = parse_xml(content)
         elif filename.endswith(".csv"):
-            tests = parse_csv(content)
+            results = parse_csv(content)
         else:
             return jsonify({"error": "Unsupported file type. Use .xml or .csv"}), 400
     except Exception as e:
         return jsonify({"error": f"Parse error: {str(e)}"}), 400
 
-    return jsonify({"tests": tests})
+    return jsonify({"results": results})
 
 
 # ---------------------------------------------------------------------------
 # XML Parser
 # ---------------------------------------------------------------------------
 
-def parse_xml(content: bytes) -> dict:
-    """Parse Apple Health-style XML export with lab results."""
+def parse_xml(content: bytes) -> list[dict]:
+    """Parse Apple Health-style XML export with lab results.
+    Returns flat list of result dicts."""
     root = ET.fromstring(content)
-    tests: dict = {}
+    results = []
 
     for record in root.findall("Record"):
         metadata = {}
@@ -69,7 +70,7 @@ def parse_xml(content: bytes) -> dict:
         raw_value = record.get("value", "")
         numeric = try_float(raw_value)
         if numeric is None:
-            continue  # skip non-numeric like "> 90"
+            continue
 
         unit = metadata.get("HKMetadataKeyUnit", record.get("unit", ""))
         date_str = record.get("startDate", "")
@@ -77,39 +78,29 @@ def parse_xml(content: bytes) -> dict:
         if not date:
             continue
 
-        ref_low = try_float(metadata.get("HKMetadataKeyReferenceRangeLow"))
-        ref_high = try_float(metadata.get("HKMetadataKeyReferenceRangeHigh"))
-
-        group = metadata.get("HKMetadataKeyLabTestGroup", "Other")
-
-        entry = {
+        results.append({
+            "testName": test_name,
+            "testGroup": metadata.get("HKMetadataKeyLabTestGroup", "Other"),
             "date": date,
             "value": numeric,
-            "refLow": ref_low,
-            "refHigh": ref_high,
-            "group": group,
-        }
+            "unit": unit,
+            "refLow": try_float(metadata.get("HKMetadataKeyReferenceRangeLow")),
+            "refHigh": try_float(metadata.get("HKMetadataKeyReferenceRangeHigh")),
+        })
 
-        tests.setdefault(unit, {}).setdefault(test_name, []).append(entry)
-
-    # Sort each test's readings by date
-    for unit_group in tests.values():
-        for readings in unit_group.values():
-            readings.sort(key=lambda r: r["date"])
-
-    return tests
+    results.sort(key=lambda r: r["date"])
+    return results
 
 
 # ---------------------------------------------------------------------------
 # CSV Parser
 # ---------------------------------------------------------------------------
 
-def parse_csv(content: bytes) -> dict:
-    """Parse CSV lab result files."""
-    text = content.decode("utf-8-sig")  # handle BOM
+def parse_csv(content: bytes) -> list[dict]:
+    """Parse CSV lab result files. Returns flat list of result dicts."""
+    text = content.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
 
-    # Normalise header names
     if reader.fieldnames is None:
         raise ValueError("CSV has no headers")
 
@@ -121,7 +112,7 @@ def parse_csv(content: bytes) -> dict:
                 return row.get(original, "").strip()
         return ""
 
-    tests: dict = {}
+    results = []
 
     for row in reader:
         test_name = get(row, "test name")
@@ -139,25 +130,18 @@ def parse_csv(content: bytes) -> dict:
         if not date:
             continue
 
-        ref_low = try_float(get(row, "ref range low"))
-        ref_high = try_float(get(row, "ref range high"))
-        group = get(row, "test group") or "Other"
-
-        entry = {
+        results.append({
+            "testName": test_name,
+            "testGroup": get(row, "test group") or "Other",
             "date": date,
             "value": numeric,
-            "refLow": ref_low,
-            "refHigh": ref_high,
-            "group": group,
-        }
+            "unit": unit,
+            "refLow": try_float(get(row, "ref range low")),
+            "refHigh": try_float(get(row, "ref range high")),
+        })
 
-        tests.setdefault(unit, {}).setdefault(test_name, []).append(entry)
-
-    for unit_group in tests.values():
-        for readings in unit_group.values():
-            readings.sort(key=lambda r: r["date"])
-
-    return tests
+    results.sort(key=lambda r: r["date"])
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +154,6 @@ def try_float(value) -> float | None:
     s = str(value).strip()
     if not s:
         return None
-    # Strip leading symbols like > < ≥ ≤
     cleaned = re.sub(r"^[<>≤≥]=?\s*", "", s)
     try:
         return float(cleaned)
