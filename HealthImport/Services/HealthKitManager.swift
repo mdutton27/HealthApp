@@ -26,15 +26,11 @@ final class HealthKitManager: ObservableObject {
         return types
     }
 
-    /// Types we want to read from HealthKit
+    /// Types we want to read from HealthKit (quantity types only — safe for all accounts)
     private var readTypes: Set<HKObjectType> {
         var types = Set<HKObjectType>()
         if let glucose = HKQuantityType.quantityType(forIdentifier: .bloodGlucose) {
             types.insert(glucose)
-        }
-        // Read clinical lab records if available (requires paid Apple Developer Program)
-        if let labType = HKObjectType.clinicalType(forIdentifier: .labResultRecord) {
-            types.insert(labType)
         }
         return types
     }
@@ -48,16 +44,35 @@ final class HealthKitManager: ObservableObject {
         }
 
         do {
+            // First: authorize standard quantity types (always safe)
             try await healthStore.requestAuthorization(toShare: writeTypes, read: readTypes)
             await MainActor.run {
                 isAuthorized = true
                 authorizationError = nil
             }
+
+            // Then: try clinical records separately so it doesn't crash the app
+            await requestClinicalAuthorization()
         } catch {
             await MainActor.run {
                 authorizationError = error.localizedDescription
                 isAuthorized = false
             }
+        }
+    }
+
+    /// Attempt clinical records authorization separately — this will silently fail
+    /// on simulators or if the entitlement isn't fully provisioned yet.
+    private func requestClinicalAuthorization() async {
+        guard let labType = HKObjectType.clinicalType(forIdentifier: .labResultRecord) else {
+            return
+        }
+        do {
+            try await healthStore.requestAuthorization(toShare: [], read: [labType])
+        } catch {
+            // Clinical records not available (simulator, missing entitlement, etc.)
+            // This is fine — the app works without it.
+            print("Clinical records auth not available: \(error.localizedDescription)")
         }
     }
 
