@@ -68,10 +68,16 @@
       <h1 class="text-2xl font-bold">Lab Results Viewer</h1>
       <p class="text-sm text-gray-400">Upload your XML or CSV lab results to visualise trends</p>
     </div>
-    <button onclick="document.getElementById('aboutModal').classList.remove('hidden')"
-            class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 transition-colors">
-      About
-    </button>
+    <div class="flex gap-2">
+      <button onclick="document.getElementById('privacyModal').classList.remove('hidden')"
+              class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 transition-colors">
+        Privacy
+      </button>
+      <button onclick="document.getElementById('aboutModal').classList.remove('hidden')"
+              class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 transition-colors">
+        About
+      </button>
+    </div>
   </header>
 
   <!-- About Modal -->
@@ -124,6 +130,60 @@
 
       <div class="mt-6 pt-4 border-t border-gray-800 text-xs text-gray-600">
         Built with Flask, Chart.js & Tailwind CSS.
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy Policy Modal -->
+  <div id="privacyModal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="modal-box">
+      <div class="flex items-center justify-between mb-2">
+        <h2>Privacy Policy</h2>
+        <button onclick="document.getElementById('privacyModal').classList.add('hidden')"
+                class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+
+      <p><strong>Last updated:</strong> March 2026</p>
+
+      <h3>🔒 Your Data Stays With You</h3>
+      <p>Lab Results Viewer is designed with a <strong>zero-storage architecture</strong>. Your health data is never stored, saved, logged, or retained in any way.</p>
+      <ul>
+        <li><strong>No server-side storage</strong> — uploaded files are parsed in memory and immediately discarded. Nothing is written to disk or any database.</li>
+        <li><strong>No user accounts</strong> — there are no accounts, logins, or user profiles.</li>
+        <li><strong>No cookies or tracking</strong> — this site does not use analytics, advertising cookies, or third-party tracking scripts.</li>
+        <li><strong>No data transmission</strong> — your health data is never sent to any third party. All processing happens between your browser and this server during the upload request only.</li>
+        <li><strong>No logs of health data</strong> — server logs may record basic request metadata (timestamps, IP addresses) for operational purposes, but never the content of your uploaded files or any health information.</li>
+      </ul>
+
+      <h3>💾 Local Storage</h3>
+      <p>The only data stored locally in your browser (via <code style="font-size:12px;background:#1f2937;padding:2px 6px;border-radius:4px;">localStorage</code>) is your demographic preference (sex and age selection) — used solely to apply the correct reference ranges. This data never leaves your browser and can be cleared at any time through your browser settings.</p>
+
+      <h3>🔌 ManageMyHealth Labs Chrome Extension</h3>
+      <p>The companion Chrome extension <strong>ManageMyHealth-Labs</strong> can be used to export your lab results directly from the ManageMyHealth patient portal into CSV or XML format for use with this viewer.</p>
+      <ul>
+        <li>The extension runs entirely within your browser and communicates only with the ManageMyHealth website you are already logged into.</li>
+        <li>The extension does not transmit your data to any external server, API, or third party.</li>
+        <li>Exported files are saved to your local device — you choose when and where to upload them.</li>
+        <li>The extension does not collect analytics, usage data, or telemetry.</li>
+      </ul>
+
+      <h3>📋 What We Process</h3>
+      <p>When you upload a CSV or XML file, the server:</p>
+      <ul>
+        <li>Parses the file to extract test names, values, dates, units, and reference ranges</li>
+        <li>Returns the structured data as JSON to your browser</li>
+        <li>Immediately discards the uploaded file from memory</li>
+      </ul>
+      <p>All visualisation, charting, pattern analysis, and reference range adjustments happen entirely in your browser after the initial parse.</p>
+
+      <h3>🌍 Hosting</h3>
+      <p>This application is hosted on <strong>Railway</strong> (railway.app). Railway's infrastructure may process basic network metadata as part of normal operations. Please refer to <a href="https://railway.app/legal/privacy" target="_blank" class="text-blue-400 hover:text-blue-300 underline">Railway's privacy policy</a> for details on their infrastructure practices.</p>
+
+      <h3>📬 Contact</h3>
+      <p>If you have questions about this privacy policy, please raise an issue on the project's GitHub repository.</p>
+
+      <div class="mt-6 pt-4 border-t border-gray-800 text-xs text-gray-600">
+        This privacy policy applies to Lab Results Viewer and the ManageMyHealth-Labs Chrome extension.
       </div>
     </div>
   </div>
