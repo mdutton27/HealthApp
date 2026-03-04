@@ -167,9 +167,9 @@
       <div class="flex items-center gap-2 mb-4 flex-wrap">
         <div class="flex bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
           <button id="btnAlpha" onclick="setViewMode('alphabetical')"
-                  class="view-btn active px-4 py-2 text-sm font-medium">List Alphabetically</button>
+                  class="view-btn px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200">List Alphabetically</button>
           <button id="btnGrouped" onclick="setViewMode('grouped')"
-                  class="view-btn px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200">Grouped by Relation</button>
+                  class="view-btn active px-4 py-2 text-sm font-medium">Grouped by Relation</button>
         </div>
         <button id="btnAnalysis" onclick="toggleAnalysis()"
                 class="ml-auto px-4 py-2 text-sm font-medium rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 transition-colors">
@@ -597,7 +597,7 @@ const AXIS_PATTERNS = [
 // ─── State ───────────────────────────────────────────────────────────
 let rawResults = [];
 let testData = {};     // { testName: { unit, readings, latest, refLow, refHigh, status } }
-let viewMode = 'alphabetical';
+let viewMode = 'grouped';
 let expandedTest = null;
 let showAnalysis = false;
 let detailCharts = {};
