@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Lab Results Viewer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    h2 { font-size: 1.5rem; font-weight: 700; margin-top: 2rem; margin-bottom: 0.75rem; color: #93c5fd; }
+    h2:first-of-type { margin-top: 0; }
+    p { color: #d1d5db; line-height: 1.7; margin-bottom: 0.75rem; }
+    ul { color: #d1d5db; line-height: 1.7; margin-bottom: 0.75rem; padding-left: 1.5rem; }
+    li { margin-bottom: 0.35rem; list-style-type: disc; }
+    code { font-size: 0.8rem; background: #1f2937; padding: 2px 6px; border-radius: 4px; }
+    a { color: #60a5fa; }
+    a:hover { color: #93c5fd; text-decoration: underline; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+  <header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Privacy Policy</h1>
+      <p class="text-sm text-gray-400 mb-0">Lab Results Viewer &amp; ManageMyHealth-Labs Chrome Extension</p>
+    </div>
+    <a href="/" class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 transition-colors">
+      ← Back to App
+    </a>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-6 py-8">
+
+    <p><strong>Last updated:</strong> March 2026</p>
+
+    <h2>🔒 Your Data Stays With You</h2>
+    <p>Lab Results Viewer is designed with a <strong>zero-storage architecture</strong>. Your health data is never stored, saved, logged, or retained in any way.</p>
+    <ul>
+      <li><strong>No server-side storage</strong> — uploaded files are parsed in memory and immediately discarded. Nothing is written to disk or any database.</li>
+      <li><strong>No user accounts</strong> — there are no accounts, logins, or user profiles.</li>
+      <li><strong>No cookies or tracking</strong> — this site does not use analytics, advertising cookies, or third-party tracking scripts.</li>
+      <li><strong>No data transmission</strong> — your health data is never sent to any third party. All processing happens between your browser and this server during the upload request only.</li>
+      <li><strong>No logs of health data</strong> — server logs may record basic request metadata (timestamps, IP addresses) for operational purposes, but never the content of your uploaded files or any health information.</li>
+    </ul>
+
+    <h2>💾 Local Browser Storage</h2>
+    <p>The only data stored locally in your browser (via <code>localStorage</code>) is your demographic preference (sex and age selection) — used solely to apply the correct reference ranges. This data never leaves your browser and can be cleared at any time through your browser settings.</p>
+
+    <h2>📋 What We Process</h2>
+    <p>When you upload a CSV or XML file, the server:</p>
+    <ul>
+      <li>Parses the file to extract test names, values, dates, units, and reference ranges</li>
+      <li>Returns the structured data as JSON to your browser</li>
+      <li>Immediately discards the uploaded file from memory</li>
+    </ul>
+    <p>All visualisation, charting, pattern analysis, and reference range adjustments happen entirely in your browser after the initial parse.</p>
+
+    <h2>🔌 ManageMyHealth-Labs Chrome Extension</h2>
+    <p>The companion Chrome extension <strong>ManageMyHealth-Labs</strong> can be used to export your lab results directly from the ManageMyHealth patient portal into CSV or XML format for use with this viewer.</p>
+    <ul>
+      <li>The extension runs entirely within your browser and communicates only with the ManageMyHealth website you are already logged into.</li>
+      <li>The extension does not transmit your data to any external server, API, or third party.</li>
+      <li>Exported files are saved to your local device — you choose when and where to upload them.</li>
+      <li>The extension does not collect analytics, usage data, or telemetry.</li>
+      <li>The extension requires only the minimum browser permissions necessary to read lab result data from the ManageMyHealth portal.</li>
+    </ul>
+
+    <h2>🛡️ Data Security</h2>
+    <ul>
+      <li>All connections to this site are encrypted via HTTPS/TLS.</li>
+      <li>No health data is persisted on the server at any point.</li>
+      <li>The application source code is open and available for inspection on GitHub.</li>
+    </ul>
+
+    <h2>👤 Children's Privacy</h2>
+    <p>This service is not directed at children under 16. We do not knowingly collect or process data from children.</p>
+
+    <h2>🌍 Hosting</h2>
+    <p>This application is hosted on <strong>Railway</strong> (railway.app). Railway's infrastructure may process basic network metadata as part of normal operations. Please refer to <a href="https://railway.app/legal/privacy" target="_blank">Railway's privacy policy</a> for details on their infrastructure practices.</p>
+
+    <h2>📝 Changes to This Policy</h2>
+    <p>We may update this privacy policy from time to time. Any changes will be reflected on this page with an updated revision date. Since we do not collect user data, we are unable to notify users of changes directly.</p>
+
+    <h2>📬 Contact</h2>
+    <p>If you have questions about this privacy policy, please raise an issue on the project's <a href="https://github.com/mdutton27/HealthApp" target="_blank">GitHub repository</a>.</p>
+
+    <div class="mt-10 pt-6 border-t border-gray-800 text-xs text-gray-600">
+      This privacy policy applies to Lab Results Viewer (healthapp-production-0f1d.up.railway.app) and the ManageMyHealth-Labs Chrome Extension.
+    </div>
+
+  </main>
+
+</body>
+</html>
