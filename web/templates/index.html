@@ -567,12 +567,20 @@ function buildTestData() {
     const last = data.readings[data.readings.length - 1];
     data.latest = last.value;
     data.latestDate = last.date;
-    data.status = getStatus(last.value, data.refLow, data.refHigh);
+    data.status = getStatus(last.value, data.refLow, data.refHigh, name);
   }
 }
 
-function getStatus(value, low, high) {
+// Tests where lower values are better — below ref range is still "normal"
+const LOWER_IS_BETTER = new Set(['HbA1c', 'HBA1c', 'CRP', 'Triglyceride']);
+
+function getStatus(value, low, high, testName) {
   if (low == null && high == null) return 'unknown';
+  if (LOWER_IS_BETTER.has(testName)) {
+    // For these tests, only flag if above upper ref range
+    if (high != null && value > high) return 'high';
+    return 'normal';
+  }
   if (low != null && value < low) return 'low';
   if (high != null && value > high) return 'high';
   return 'normal';
