@@ -46,6 +46,8 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
     .test-name-tip:hover .tip-text { visibility: visible; opacity: 1; }
+    .sex-btn.active { background-color: #3b82f6; color: white; }
+    .sex-badge { font-size: 10px; opacity: 0.6; margin-left: 4px; }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
@@ -66,6 +68,26 @@
       <p class="text-lg font-medium">Drop your XML or CSV file here</p>
       <p class="text-sm text-gray-400 mt-1">or click to browse</p>
       <div id="uploadStatus" class="mt-3 text-sm hidden"></div>
+    </div>
+
+    <!-- Demographics Settings -->
+    <div class="bg-gray-900 rounded-xl border border-gray-800 px-4 py-3 flex items-center gap-4 flex-wrap">
+      <span class="text-sm text-gray-400">Reference ranges:</span>
+      <div class="flex bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
+        <button id="btnSexNone" onclick="setSex(null)"
+                class="sex-btn px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors">Default</button>
+        <button id="btnSexMale" onclick="setSex('male')"
+                class="sex-btn px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors">♂ Male</button>
+        <button id="btnSexFemale" onclick="setSex('female')"
+                class="sex-btn px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors">♀ Female</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="ageInput" class="text-sm text-gray-400">Age:</label>
+        <input type="number" id="ageInput" min="1" max="120" placeholder="—"
+               class="w-14 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-center text-gray-100 focus:outline-none focus:border-blue-500"
+               onchange="saveAge()">
+      </div>
+      <span class="text-xs text-gray-600 ml-auto">Adjusts ranges for sex-differentiated tests</span>
     </div>
 
     <!-- Main Content (hidden until file loaded) -->
@@ -102,6 +124,24 @@
   </main>
 
 <script>
+// ─── Sex/Age-Specific Reference Ranges (NZ adult values) ────────────
+const SEX_AGE_RANGES = {
+  'Haemoglobin':              { male: [130, 175],  female: [115, 155] },
+  'Haematocrit':              { male: [0.40, 0.54], female: [0.36, 0.46] },
+  'Red Blood Cells':          { male: [4.5, 6.5],  female: [3.8, 5.8] },
+  'RBC':                      { male: [4.5, 6.5],  female: [3.8, 5.8] },
+  'Ferritin':                 { male: [30, 300],   female: [15, 200] },
+  'Iron':                     { male: [10, 30],    female: [8, 28] },
+  'Creatinine':               { male: [60, 105],   female: [45, 90] },
+  'Testosterone':             { male: [8.0, 29.0], female: [0.2, 1.8] },
+  'ALT':                      { male: [10, 50],    female: [10, 35] },
+  'AST':                      { male: [10, 50],    female: [10, 35] },
+  'GGT':                      { male: [10, 71],    female: [6, 42] },
+  'Urate':                    { male: [0.20, 0.42], female: [0.14, 0.34] },
+  'Alkaline phosphatase':     { male: [40, 130],   female: [35, 105] },
+  'ALP':                      { male: [40, 130],   female: [35, 105] },
+};
+
 // ─── Clinical Group Definitions ──────────────────────────────────────
 const CLINICAL_GROUPS = [
   { id: 'fbc', name: 'Full Blood Count', icon: '🩸',
@@ -491,6 +531,56 @@ let viewMode = 'alphabetical';
 let expandedTest = null;
 let showAnalysis = false;
 let detailCharts = {};
+let userSex = localStorage.getItem('userSex') || null;   // 'male', 'female', or null
+let userAge = parseInt(localStorage.getItem('userAge')) || null;
+
+// ─── Demographics Settings ──────────────────────────────────────────
+
+function initDemographics() {
+  // Restore saved settings into UI
+  document.querySelectorAll('.sex-btn').forEach(b => b.classList.remove('active'));
+  if (userSex === 'male') document.getElementById('btnSexMale').classList.add('active');
+  else if (userSex === 'female') document.getElementById('btnSexFemale').classList.add('active');
+  else document.getElementById('btnSexNone').classList.add('active');
+  if (userAge) document.getElementById('ageInput').value = userAge;
+}
+
+function setSex(sex) {
+  userSex = sex;
+  if (sex) localStorage.setItem('userSex', sex);
+  else localStorage.removeItem('userSex');
+  document.querySelectorAll('.sex-btn').forEach(b => b.classList.remove('active'));
+  if (sex === 'male') document.getElementById('btnSexMale').classList.add('active');
+  else if (sex === 'female') document.getElementById('btnSexFemale').classList.add('active');
+  else document.getElementById('btnSexNone').classList.add('active');
+  // Rebuild and re-render if data loaded
+  if (rawResults.length) { buildTestData(); render(); }
+}
+
+function saveAge() {
+  const val = parseInt(document.getElementById('ageInput').value);
+  if (val > 0 && val <= 120) {
+    userAge = val;
+    localStorage.setItem('userAge', val);
+  } else {
+    userAge = null;
+    localStorage.removeItem('userAge');
+  }
+  if (rawResults.length) { buildTestData(); render(); }
+}
+
+function applySexRanges() {
+  if (!userSex) return;
+  for (const [name, data] of Object.entries(testData)) {
+    const range = SEX_AGE_RANGES[name];
+    if (!range || !range[userSex]) continue;
+    data.refLow = range[userSex][0];
+    data.refHigh = range[userSex][1];
+    data.sexAdjusted = true;
+    // Recalculate status with new ranges
+    data.status = getStatus(data.latest, data.refLow, data.refHigh, name);
+  }
+}
 
 const COLORS = [
   '#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899',
@@ -571,6 +661,8 @@ function buildTestData() {
     data.latestDate = last.date;
     data.status = getStatus(last.value, data.refLow, data.refHigh, name);
   }
+  // Apply sex-specific reference ranges (overrides file ranges)
+  applySexRanges();
 }
 
 // Tests where lower values are better — below ref range is still "normal"
@@ -712,8 +804,9 @@ function renderTestCard(name, data) {
   const sparkline = createSparkline(data.readings, data.refLow, data.refHigh, data.status);
   const safeName = name.replace(/[^a-zA-Z0-9]/g, '_');
   const dateFormatted = formatDate(data.latestDate);
+  const sexBadge = data.sexAdjusted ? `<span class="sex-badge">${userSex === 'male' ? '♂' : '♀'}</span>` : '';
   const refText = (data.refLow != null && data.refHigh != null)
-    ? `Ref: ${data.refLow} - ${data.refHigh}`
+    ? `Ref: ${data.refLow} - ${data.refHigh}${sexBadge}`
     : '';
 
   const cardClass = `card-${data.status}`;
@@ -1089,6 +1182,9 @@ function renderAnalysis() {
 
   content.innerHTML = html;
 }
+
+// ─── Init ────────────────────────────────────────────────────────────
+initDemographics();
 </script>
 </body>
 </html>
