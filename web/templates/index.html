@@ -10,8 +10,40 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
   <style>
     .drop-active { border-color: #3b82f6 !important; background-color: rgba(59,130,246,0.05) !important; }
-    .group-header { user-select: none; }
-    .group-header:hover { background-color: rgba(255,255,255,0.03); }
+    .test-card { transition: all 0.2s ease; border-left: 4px solid transparent; }
+    .test-card:hover { background-color: rgba(255,255,255,0.03); }
+    .test-card.expanded { background-color: rgba(59,130,246,0.05); border-color: #3b82f6; }
+    .test-card.card-normal { border-left-color: #22c55e; }
+    .test-card.card-high { border-left-color: #ef4444; background-color: rgba(239,68,68,0.05); }
+    .test-card.card-high:hover { background-color: rgba(239,68,68,0.08); }
+    .test-card.card-low { border-left-color: #f59e0b; background-color: rgba(245,158,11,0.05); }
+    .test-card.card-low:hover { background-color: rgba(245,158,11,0.08); }
+    .test-card.card-unknown { border-left-color: #4b5563; }
+    .view-btn { transition: all 0.15s ease; }
+    .view-btn.active { background-color: #3b82f6; color: white; }
+    .group-section { transition: all 0.2s ease; }
+    .severity-info { border-left: 3px solid #3b82f6; }
+    .severity-warning { border-left: 3px solid #f59e0b; }
+    .severity-alert { border-left: 3px solid #ef4444; }
+    .status-normal { color: #22c55e; }
+    .status-high { color: #ef4444; }
+    .status-low { color: #f59e0b; }
+    .status-unknown { color: #6b7280; }
+    .value-high { color: #ef4444; }
+    .value-low { color: #f59e0b; }
+    .pattern-triggered { opacity: 1; }
+    .pattern-not-triggered { opacity: 0.5; }
+    .pattern-missing { opacity: 0.7; }
+    .test-name-tip { position: relative; cursor: help; border-bottom: 1px dotted rgba(255,255,255,0.2); }
+    .test-name-tip .tip-text {
+      visibility: hidden; opacity: 0; position: absolute; z-index: 50;
+      bottom: calc(100% + 6px); left: 0; min-width: 260px; max-width: 360px;
+      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      padding: 8px 12px; font-size: 12px; font-weight: 400; color: #cbd5e1;
+      line-height: 1.5; pointer-events: none; transition: opacity 0.15s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .test-name-tip:hover .tip-text { visibility: visible; opacity: 1; }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
@@ -22,7 +54,7 @@
     <p class="text-sm text-gray-400">Upload your XML or CSV lab results to visualise trends</p>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
+  <main class="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-6">
 
     <!-- Upload Area -->
     <div id="uploadArea"
@@ -37,60 +69,426 @@
     <!-- Main Content (hidden until file loaded) -->
     <div id="mainContent" class="hidden">
 
-      <div class="flex flex-wrap gap-4 items-start">
-
-        <!-- Test Selector (by Test Group) -->
-        <div class="w-80 shrink-0">
-          <div class="bg-gray-900 rounded-xl border border-gray-800 p-4 max-h-[600px] overflow-y-auto">
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="font-semibold text-lg">Select Tests</h2>
-              <div class="flex gap-2">
-                <button onclick="selectAll()" class="text-xs px-2 py-1 rounded bg-blue-600 hover:bg-blue-500">All</button>
-                <button onclick="selectNone()" class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600">None</button>
-              </div>
-            </div>
-            <div id="testSelector"></div>
-          </div>
-
-          <!-- Axis Controls -->
-          <div class="bg-gray-900 rounded-xl border border-gray-800 p-4 mt-4">
-            <h2 class="font-semibold text-sm mb-3">Y-Axis Units</h2>
-            <div class="space-y-3">
-              <div>
-                <label class="text-xs text-gray-400 block mb-1">Left Axis</label>
-                <select id="leftAxis" onchange="updateChart()"
-                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></select>
-              </div>
-              <div>
-                <label class="text-xs text-gray-400 block mb-1">Right Axis</label>
-                <select id="rightAxis" onchange="updateChart()"
-                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></select>
-              </div>
-              <button onclick="swapAxes()" class="w-full text-xs px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700">
-                ⇄ Swap Axes
-              </button>
-            </div>
-          </div>
+      <!-- View Mode Toggle -->
+      <div class="flex items-center gap-2 mb-4 flex-wrap">
+        <div class="flex bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+          <button id="btnAlpha" onclick="setViewMode('alphabetical')"
+                  class="view-btn active px-4 py-2 text-sm font-medium">List Alphabetically</button>
+          <button id="btnGrouped" onclick="setViewMode('grouped')"
+                  class="view-btn px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200">Grouped by Relation</button>
         </div>
-
-        <!-- Chart + Legend -->
-        <div class="flex-1 min-w-0">
-          <!-- Legend -->
-          <div id="chartLegend" class="flex flex-wrap gap-3 mb-3 text-xs"></div>
-          <!-- Chart -->
-          <div class="bg-gray-900 rounded-xl border border-gray-800 p-4">
-            <canvas id="labChart" height="450"></canvas>
-          </div>
-        </div>
-
+        <button id="btnAnalysis" onclick="toggleAnalysis()"
+                class="ml-auto px-4 py-2 text-sm font-medium rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 transition-colors">
+          Axis Analysis
+        </button>
       </div>
+
+      <!-- Axis Analysis Panel -->
+      <div id="analysisPanel" class="hidden mb-4">
+        <div class="bg-gray-900 rounded-xl border border-gray-800 p-4">
+          <div class="bg-amber-950 border border-amber-800 rounded-lg px-4 py-2 mb-4 text-sm text-amber-200">
+            Experimental — not medical advice. These patterns are for educational exploration only.
+          </div>
+          <div id="analysisContent"></div>
+        </div>
+      </div>
+
+      <!-- Test Cards Container -->
+      <div id="testCards" class="space-y-2"></div>
+
     </div>
   </main>
 
 <script>
-// ─── State ──────────────────────────────────────────────────────────
-let rawResults = [];    // flat array from backend
-let chart = null;
+// ─── Clinical Group Definitions ──────────────────────────────────────
+const CLINICAL_GROUPS = [
+  { id: 'fbc', name: 'Full Blood Count', icon: '🩸',
+    tests: ['Haemoglobin', 'Haematocrit', 'MCV', 'MCH', 'Red Blood Cells', 'White Blood Cells', 'Platelets', 'RBC', 'WBC'] },
+  { id: 'iron', name: 'Iron Metabolism', icon: '⚙️',
+    tests: ['Iron', 'Ferritin', 'Transferrin', 'Transferrin saturation', 'Haptoglobin', 'TIBC', 'Serum Iron'] },
+  { id: 'b12folate', name: 'B12 & Folate', icon: '💊',
+    tests: ['Folate', 'Vitamin B12', 'B12', 'Active B12', 'Holotranscobalamin'] },
+  { id: 'liver', name: 'Liver Function', icon: '🫘',
+    tests: ['Bilirubin', 'Direct Bilirubin', 'Conjugated Bilirubin', 'Alkaline phosphatase', 'GGT', 'ALT', 'AST', 'LD', 'Protein', 'Albumin', 'Globulin', 'ALP'] },
+  { id: 'kidney', name: 'Kidney Function', icon: '🫁',
+    tests: ['Creatinine', 'eGFR', 'Urea', 'BUN', 'Cystatin C'] },
+  { id: 'electrolytes', name: 'Electrolytes', icon: '⚡',
+    tests: ['Sodium', 'Potassium', 'Chloride', 'Bicarbonate', 'CO2'] },
+  { id: 'bone', name: 'Bone & Calcium', icon: '🦴',
+    tests: ['Calcium', 'Phosphate', 'Calcium (albumin adjusted)', 'Vitamin D', '25-OH Vitamin D', 'PTH', 'Magnesium'] },
+  { id: 'thyroid', name: 'Thyroid', icon: '🦋',
+    tests: ['TSH', 'Thyroid Peroxidase Antibodies', 'TPO'] },
+  { id: 'hormones', name: 'Hormones', icon: '🧬',
+    tests: ['Testosterone', 'SHBG', 'Free Testosterone', 'T4 (free)', 'T3 (free)', 'Free T4', 'Free T3', 'T4', 'T3', 'Oestradiol', 'Progesterone', 'LH', 'FSH', 'Prolactin', 'DHEA-S'] },
+  { id: 'inflammation', name: 'Inflammation', icon: '🔥',
+    tests: ['CRP', 'ESR', 'hs-CRP', 'High Sensitivity CRP'] },
+  { id: 'autoimmune', name: 'Autoimmune', icon: '🛡️',
+    tests: ['anti TTG IgA', 'IgA', 'Intrinsic Factor', 'ANA', 'Rheumatoid Factor', 'Anti-CCP'] },
+  { id: 'endocrine', name: 'Endocrine', icon: '🎯',
+    tests: ['Serum Cortisol', 'Cortisol', 'Insulin', 'HbA1c', 'Glucose', 'C-Peptide'] },
+  { id: 'lipids', name: 'Lipids', icon: '🫀',
+    tests: ['Cholesterol', 'Total Cholesterol', 'HDL Cholesterol', 'LDL Cholesterol', 'Triglyceride', 'Triglycerides', 'Non-HDL Cholesterol', 'Cholesterol/HDL Ratio', 'Chol/HDL Ratio', 'HDL', 'LDL'] },
+  { id: 'diabetes', name: 'Diabetes', icon: '📊',
+    tests: ['HbA1c', 'Fasting Glucose', 'Glucose', 'Insulin', 'HOMA-IR'] },
+  { id: 'vitamins', name: 'Vitamins & Minerals', icon: '🌿',
+    tests: ['Vitamin D', 'Vitamin B12', 'Folate', 'Zinc', 'Selenium', 'Copper', 'Magnesium'] },
+  { id: 'coagulation', name: 'Coagulation', icon: '🩹',
+    tests: ['INR', 'PT', 'APTT', 'Fibrinogen', 'D-Dimer'] },
+  { id: 'proteins', name: 'Proteins & Immunoglobulins', icon: '🧪',
+    tests: ['Total Protein', 'Albumin', 'IgA', 'IgG', 'IgM', 'Protein Electrophoresis'] },
+];
+
+// ─── Test Name Aliases ───────────────────────────────────────────────
+const TEST_ALIASES = {
+  'hb': 'Haemoglobin', 'hemoglobin': 'Haemoglobin', 'haemoglobin': 'Haemoglobin',
+  'hct': 'Haematocrit', 'hematocrit': 'Haematocrit',
+  'rbc': 'Red Blood Cells', 'wbc': 'White Blood Cells',
+  'tsat': 'Transferrin saturation', 'transferrin sat': 'Transferrin saturation',
+  'alt': 'ALT', 'sgpt': 'ALT', 'alanine aminotransferase': 'ALT',
+  'ast': 'AST', 'sgot': 'AST', 'aspartate aminotransferase': 'AST',
+  'ggt': 'GGT', 'gamma gt': 'GGT', 'gamma-glutamyl transferase': 'GGT',
+  'alp': 'Alkaline phosphatase', 'alk phos': 'Alkaline phosphatase',
+  'egfr': 'eGFR', 'estimated gfr': 'eGFR',
+  'tsh': 'TSH', 'thyroid stimulating hormone': 'TSH',
+  'ft4': 'Free T4', 'free thyroxine': 'Free T4',
+  'ft3': 'Free T3', 'free triiodothyronine': 'Free T3',
+  'crp': 'CRP', 'c-reactive protein': 'CRP',
+  'ldh': 'LD', 'lactate dehydrogenase': 'LD',
+  'shbg': 'SHBG', 'sex hormone binding globulin': 'SHBG',
+  'hba1c': 'HbA1c', 'glycated haemoglobin': 'HbA1c',
+  'anti ttg': 'anti TTG IgA', 'tissue transglutaminase': 'anti TTG IgA',
+  'ca adj': 'Calcium (albumin adjusted)', 'corrected calcium': 'Calcium (albumin adjusted)',
+  'intrinsic factor ab': 'Intrinsic Factor', 'if antibodies': 'Intrinsic Factor',
+};
+
+// ─── Test Descriptions (plain-language tooltips) ─────────────────────
+const TEST_DESCRIPTIONS = {
+  // Full Blood Count
+  'Haemoglobin': 'Protein in red blood cells that carries oxygen around the body. Low levels indicate anemia.',
+  'Haematocrit': 'Percentage of blood volume made up of red blood cells. Reflects hydration and red cell mass.',
+  'MCV': 'Mean Corpuscular Volume — the average size of your red blood cells. Helps classify types of anemia.',
+  'MCH': 'Mean Corpuscular Haemoglobin — the average amount of haemoglobin per red blood cell.',
+  'RBC': 'Red Blood Cell count — the number of red blood cells per litre of blood.',
+  'WBC': 'White Blood Cell count — cells that fight infection. High may indicate infection or inflammation.',
+  'Platelets': 'Small blood cells that help your blood clot. Low levels increase bleeding risk.',
+  'Neutrophils': 'The most common white blood cell. First responders to bacterial infections.',
+  'Lymphocytes': 'White blood cells key to immune response, including fighting viruses and producing antibodies.',
+  'Monocytes': 'White blood cells that engulf and destroy pathogens and dead cells.',
+  'Eosinophils': 'White blood cells involved in allergic responses and fighting parasites.',
+  'Basophils': 'Rarest white blood cells, involved in allergic and inflammatory reactions.',
+  'NRBCS': 'Nucleated Red Blood Cells — immature red cells not normally seen in blood. Can indicate bone marrow stress.',
+  // Iron
+  'Iron': 'Serum iron level — the amount of iron circulating in your blood, needed for oxygen transport.',
+  'Ferritin': 'A protein that stores iron. The best single marker of your body\'s total iron stores.',
+  'Transferrin': 'A protein that transports iron in the blood. Rises when iron stores are low.',
+  'Transferrin saturation': 'The percentage of transferrin that is carrying iron. Low values suggest iron deficiency.',
+  'Haptoglobin': 'A protein that binds free haemoglobin. Low levels suggest red blood cells are being destroyed (hemolysis).',
+  // B12 & Folate
+  'Folate': 'A B-vitamin essential for DNA synthesis and red blood cell production. Low levels cause anemia.',
+  'Vitamin B12': 'Essential for nerve function and red blood cell formation. Deficiency causes fatigue and neurological issues.',
+  // Liver
+  'Bilirubin': 'A yellow pigment from red blood cell breakdown, processed by the liver. High levels can cause jaundice.',
+  'Alkaline phosphatase': 'An enzyme found in liver and bone. Elevated levels may indicate liver or bone disease.',
+  'GGT': 'Gamma-glutamyl transferase — a liver enzyme. Elevated levels often relate to alcohol use or bile duct issues.',
+  'ALT': 'Alanine aminotransferase — a liver enzyme. Elevated levels indicate liver cell damage.',
+  'AST': 'Aspartate aminotransferase — found in liver, heart, and muscle. Elevated with tissue damage.',
+  'LD': 'Lactate dehydrogenase — a non-specific marker of tissue damage found in many organs.',
+  'Protein': 'Total protein in blood, combining albumin and globulin. Reflects nutrition and liver/kidney function.',
+  'Albumin': 'The main protein in blood, made by the liver. Low levels may indicate liver disease or malnutrition.',
+  'Globulin': 'A group of proteins including antibodies. Elevated levels may indicate inflammation or immune activity.',
+  // Kidney
+  'Creatinine': 'A waste product from muscle metabolism filtered by the kidneys. High levels suggest reduced kidney function.',
+  'eGFR': 'Estimated Glomerular Filtration Rate — how well your kidneys filter waste. Higher is better; below 60 is concerning.',
+  // Electrolytes
+  'Sodium': 'An essential electrolyte that regulates fluid balance and nerve/muscle function.',
+  'Potassium': 'An electrolyte critical for heart rhythm and muscle contractions. Both high and low levels are dangerous.',
+  'Chloride': 'An electrolyte that helps maintain fluid balance and acid-base status.',
+  // Bone & Calcium
+  'Calcium': 'Essential mineral for bones, teeth, muscle contraction, and nerve signalling.',
+  'Phosphate': 'A mineral that works with calcium for bone health and energy metabolism.',
+  'Calcium (albumin adjusted)': 'Calcium corrected for albumin levels, giving a more accurate picture of active calcium.',
+  'Vitamin D': 'Essential for calcium absorption and bone health. Low levels are common and cause fatigue and bone weakness.',
+  // Thyroid
+  'TSH': 'Thyroid Stimulating Hormone — the master control for thyroid function. High TSH suggests underactive thyroid.',
+  'T4 (free)': 'Free thyroxine — the main hormone produced by the thyroid. Controls metabolism and energy.',
+  'T3 (free)': 'Free triiodothyronine — the active thyroid hormone. Converted from T4 in tissues.',
+  'Free T4': 'Free thyroxine — the main hormone produced by the thyroid. Controls metabolism and energy.',
+  'Free T3': 'Free triiodothyronine — the active thyroid hormone. Converted from T4 in tissues.',
+  // Hormones
+  'Testosterone': 'Primary male sex hormone. Important for muscle mass, bone density, mood, and energy.',
+  'SHBG': 'Sex Hormone Binding Globulin — a protein that binds testosterone, reducing the amount available to tissues.',
+  'FSH': 'Follicle Stimulating Hormone — regulates reproductive function. Elevated in menopause or testicular issues.',
+  'LH': 'Luteinising Hormone — triggers ovulation in women and testosterone production in men.',
+  'Prolactin': 'A hormone primarily associated with milk production. Elevated levels can affect fertility and libido.',
+  'Oestradiol': 'The main oestrogen hormone. Important for bone health and reproductive function.',
+  // Inflammation
+  'CRP': 'C-Reactive Protein — a marker of inflammation in the body. Rises rapidly with infection or tissue injury.',
+  'ESR': 'Erythrocyte Sedimentation Rate — a non-specific marker of inflammation.',
+  // Autoimmune
+  'anti TTG IgA': 'Anti-tissue transglutaminase IgA — the primary screening test for coeliac disease.',
+  'IgA': 'Immunoglobulin A — an antibody important for mucosal immunity. Low levels can cause false-negative coeliac tests.',
+  'Intrinsic Factor': 'Antibodies against intrinsic factor, which is needed to absorb Vitamin B12. Positive in pernicious anemia.',
+  // Endocrine
+  'Serum Cortisol': 'The body\'s primary stress hormone. Follows a daily rhythm — highest in morning, lowest at night.',
+  'HbA1c': 'Glycated haemoglobin — reflects your average blood sugar over the past 2-3 months. Used to screen for diabetes.',
+  'Glucose': 'Blood sugar level. The body\'s primary source of energy, regulated by insulin.',
+  // Lipids
+  'Cholesterol': 'Total cholesterol — a waxy substance needed for cell membranes and hormones. High levels increase heart disease risk.',
+  'HDL Cholesterol': 'High-density lipoprotein — "good" cholesterol that removes excess cholesterol from arteries.',
+  'LDL Cholesterol': 'Low-density lipoprotein — "bad" cholesterol that can build up in artery walls.',
+  'Triglyceride': 'A type of fat in the blood. High levels increase risk of heart disease and pancreatitis.',
+  'Non-HDL Cholesterol': 'All cholesterol minus HDL — a comprehensive measure of "bad" cholesterol types.',
+  'Cholesterol (HDL)': 'High-density lipoprotein — "good" cholesterol that removes excess cholesterol from arteries.',
+  'Cholesterol (LDL) (calculated)': 'Low-density lipoprotein — "bad" cholesterol that can build up in artery walls.',
+  'Cholesterol/HDL Ratio': 'Ratio of total cholesterol to HDL. Lower is better; above 4.5 indicates increased cardiovascular risk.',
+  // Other
+  'PSA': 'Prostate Specific Antigen — a protein produced by the prostate. Used to screen for prostate conditions.',
+  'Urea': 'A waste product from protein metabolism filtered by the kidneys.',
+  'INR': 'International Normalised Ratio — measures blood clotting time. Used to monitor anticoagulant therapy.',
+};
+
+// ─── Axis Analysis Patterns (50) ─────────────────────────────────────
+const AXIS_PATTERNS = [
+  // Iron & Blood (1-10)
+  { id: 'iron_def_anemia', name: 'Iron Deficiency Anemia', severity: 'warning',
+    description: 'Low ferritin combined with low haemoglobin suggests iron deficiency anemia.',
+    requires: ['Ferritin', 'Haemoglobin'],
+    condition: (v, r) => v['Ferritin'] < r['Ferritin'].low && v['Haemoglobin'] < r['Haemoglobin'].low },
+  { id: 'iron_def_no_anemia', name: 'Iron Deficiency (No Anemia)', severity: 'info',
+    description: 'Low ferritin with normal haemoglobin — iron stores depleted but not yet causing anemia.',
+    requires: ['Ferritin', 'Haemoglobin'],
+    condition: (v, r) => v['Ferritin'] < r['Ferritin'].low && v['Haemoglobin'] >= r['Haemoglobin'].low },
+  { id: 'iron_overload', name: 'Possible Iron Overload', severity: 'alert',
+    description: 'Elevated ferritin with high transferrin saturation may indicate iron overload.',
+    requires: ['Ferritin', 'Transferrin saturation'],
+    condition: (v, r) => v['Ferritin'] > r['Ferritin'].high && v['Transferrin saturation'] > r['Transferrin saturation'].high },
+  { id: 'microcytic_anemia', name: 'Microcytic Anemia', severity: 'warning',
+    description: 'Low MCV with low haemoglobin suggests microcytic anemia (often iron deficiency or thalassemia).',
+    requires: ['MCV', 'Haemoglobin'],
+    condition: (v, r) => v['MCV'] < r['MCV'].low && v['Haemoglobin'] < r['Haemoglobin'].low },
+  { id: 'macrocytic_anemia', name: 'Macrocytic Anemia', severity: 'warning',
+    description: 'High MCV with low haemoglobin suggests macrocytic anemia (often B12 or folate deficiency).',
+    requires: ['MCV', 'Haemoglobin'],
+    condition: (v, r) => v['MCV'] > r['MCV'].high && v['Haemoglobin'] < r['Haemoglobin'].low },
+  { id: 'hemolysis', name: 'Hemolysis Indicator', severity: 'alert',
+    description: 'Low haptoglobin with low haemoglobin may indicate red cell destruction (hemolysis).',
+    requires: ['Haptoglobin', 'Haemoglobin'],
+    condition: (v, r) => v['Haptoglobin'] < r['Haptoglobin'].low && v['Haemoglobin'] < r['Haemoglobin'].low },
+  { id: 'functional_iron_def', name: 'Functional Iron Deficiency', severity: 'info',
+    description: 'Low transferrin saturation with normal ferritin — iron not being effectively used.',
+    requires: ['Transferrin saturation', 'Ferritin'],
+    condition: (v, r) => v['Transferrin saturation'] < r['Transferrin saturation'].low && v['Ferritin'] >= r['Ferritin'].low },
+  { id: 'anemia_chronic_disease', name: 'Anemia of Chronic Disease', severity: 'warning',
+    description: 'Low haemoglobin with elevated ferritin and low iron — pattern seen in chronic inflammation.',
+    requires: ['Haemoglobin', 'Ferritin', 'Iron'],
+    condition: (v, r) => v['Haemoglobin'] < r['Haemoglobin'].low && v['Ferritin'] > r['Ferritin'].high && v['Iron'] < r['Iron'].low },
+  { id: 'low_hb', name: 'Low Haemoglobin', severity: 'warning',
+    description: 'Haemoglobin below reference range — indicates anemia.',
+    requires: ['Haemoglobin'],
+    condition: (v, r) => v['Haemoglobin'] < r['Haemoglobin'].low },
+  { id: 'high_ferritin', name: 'Elevated Ferritin', severity: 'info',
+    description: 'Ferritin above reference range — may indicate iron overload, inflammation, or liver disease.',
+    requires: ['Ferritin'],
+    condition: (v, r) => v['Ferritin'] > r['Ferritin'].high },
+
+  // Liver (11-18)
+  { id: 'hepatocellular', name: 'Hepatocellular Pattern', severity: 'warning',
+    description: 'Elevated ALT and GGT suggest liver cell damage.',
+    requires: ['ALT', 'GGT'],
+    condition: (v, r) => v['ALT'] > r['ALT'].high && v['GGT'] > r['GGT'].high },
+  { id: 'cholestatic', name: 'Cholestatic Pattern', severity: 'warning',
+    description: 'Elevated ALP and GGT with normal ALT suggests bile duct or cholestatic issue.',
+    requires: ['Alkaline phosphatase', 'GGT', 'ALT'],
+    condition: (v, r) => v['Alkaline phosphatase'] > r['Alkaline phosphatase'].high && v['GGT'] > r['GGT'].high && v['ALT'] <= r['ALT'].high },
+  { id: 'biliary_obstruction', name: 'Biliary Obstruction Indicator', severity: 'alert',
+    description: 'Elevated bilirubin with elevated ALP may indicate bile duct obstruction.',
+    requires: ['Bilirubin', 'Alkaline phosphatase'],
+    condition: (v, r) => v['Bilirubin'] > r['Bilirubin'].high && v['Alkaline phosphatase'] > r['Alkaline phosphatase'].high },
+  { id: 'isolated_ggt', name: 'Isolated GGT Elevation', severity: 'info',
+    description: 'Elevated GGT with normal ALT — may be alcohol-related or due to enzyme-inducing medications.',
+    requires: ['GGT', 'ALT'],
+    condition: (v, r) => v['GGT'] > r['GGT'].high && v['ALT'] <= r['ALT'].high },
+  { id: 'low_albumin', name: 'Low Albumin', severity: 'warning',
+    description: 'Albumin below range may indicate liver synthetic dysfunction, malnutrition, or chronic illness.',
+    requires: ['Albumin'],
+    condition: (v, r) => v['Albumin'] < r['Albumin'].low },
+  { id: 'elevated_ld', name: 'Elevated LD (LDH)', severity: 'info',
+    description: 'Elevated lactate dehydrogenase — non-specific marker of tissue damage.',
+    requires: ['LD'],
+    condition: (v, r) => v['LD'] > r['LD'].high },
+  { id: 'high_globulin', name: 'Elevated Globulin', severity: 'info',
+    description: 'Globulin above range may indicate chronic inflammation, infection, or immune activation.',
+    requires: ['Globulin'],
+    condition: (v, r) => v['Globulin'] > r['Globulin'].high },
+  { id: 'reversed_ag', name: 'Reversed Albumin/Globulin Ratio', severity: 'warning',
+    description: 'Albumin lower than globulin (A/G ratio <1) — may indicate liver disease or chronic inflammation.',
+    requires: ['Albumin', 'Globulin'],
+    condition: (v, r) => v['Albumin'] < v['Globulin'] },
+
+  // Kidney (19-22)
+  { id: 'kidney_decline', name: 'Kidney Function Decline', severity: 'warning',
+    description: 'Low eGFR with elevated creatinine suggests reduced kidney function.',
+    requires: ['eGFR', 'Creatinine'],
+    condition: (v, r) => v['eGFR'] < r['eGFR'].low && v['Creatinine'] > r['Creatinine'].high },
+  { id: 'stage3_ckd', name: 'Possible Stage 3 CKD', severity: 'alert',
+    description: 'eGFR between 30-59 suggests Stage 3 chronic kidney disease.',
+    requires: ['eGFR'],
+    condition: (v, r) => v['eGFR'] >= 30 && v['eGFR'] < 60 },
+  { id: 'mild_kidney', name: 'Mildly Reduced Kidney Function', severity: 'info',
+    description: 'eGFR between 60-89 indicates mildly reduced kidney function.',
+    requires: ['eGFR'],
+    condition: (v, r) => v['eGFR'] >= 60 && v['eGFR'] < 90 },
+  { id: 'elevated_creatinine', name: 'Elevated Creatinine', severity: 'info',
+    description: 'Creatinine above range — may indicate reduced kidney function or high muscle mass.',
+    requires: ['Creatinine'],
+    condition: (v, r) => v['Creatinine'] > r['Creatinine'].high },
+
+  // Thyroid (23-25)
+  { id: 'subclinical_hypo', name: 'Possible Subclinical Hypothyroidism', severity: 'warning',
+    description: 'Elevated TSH may indicate the thyroid is underperforming.',
+    requires: ['TSH'],
+    condition: (v, r) => v['TSH'] > r['TSH'].high },
+  { id: 'low_tsh', name: 'Low TSH', severity: 'info',
+    description: 'TSH below range may indicate hyperthyroidism or over-replacement with thyroid medication.',
+    requires: ['TSH'],
+    condition: (v, r) => v['TSH'] < r['TSH'].low },
+  { id: 'thyroid_with_symptoms', name: 'TSH with Fatigue Pattern', severity: 'warning',
+    description: 'Elevated TSH with low haemoglobin — hypothyroidism can contribute to anemia and fatigue.',
+    requires: ['TSH', 'Haemoglobin'],
+    condition: (v, r) => v['TSH'] > r['TSH'].high && v['Haemoglobin'] < r['Haemoglobin'].low },
+
+  // Hormones (26-30)
+  { id: 'low_testosterone', name: 'Low Testosterone', severity: 'warning',
+    description: 'Testosterone below reference range.',
+    requires: ['Testosterone'],
+    condition: (v, r) => v['Testosterone'] < r['Testosterone'].low },
+  { id: 'high_shbg', name: 'Elevated SHBG', severity: 'info',
+    description: 'SHBG above range reduces free testosterone availability.',
+    requires: ['SHBG'],
+    condition: (v, r) => v['SHBG'] > r['SHBG'].high },
+  { id: 'low_free_androgen', name: 'Low Free Androgen Index', severity: 'warning',
+    description: 'Low testosterone with high SHBG — free testosterone likely very low.',
+    requires: ['Testosterone', 'SHBG'],
+    condition: (v, r) => v['Testosterone'] < r['Testosterone'].low && v['SHBG'] > r['SHBG'].high },
+  { id: 'test_shbg_imbalance', name: 'Testosterone-SHBG Imbalance', severity: 'info',
+    description: 'SHBG elevated relative to testosterone, potentially reducing bioavailable testosterone.',
+    requires: ['Testosterone', 'SHBG'],
+    condition: (v, r) => v['SHBG'] > r['SHBG'].high && v['Testosterone'] <= ((r['Testosterone'].low + r['Testosterone'].high) / 2) },
+  { id: 'high_testosterone', name: 'Elevated Testosterone', severity: 'info',
+    description: 'Testosterone above reference range.',
+    requires: ['Testosterone'],
+    condition: (v, r) => v['Testosterone'] > r['Testosterone'].high },
+
+  // Electrolytes (31-35)
+  { id: 'hyponatremia', name: 'Low Sodium (Hyponatremia)', severity: 'warning',
+    description: 'Sodium below range — may cause fatigue, confusion, or muscle cramps.',
+    requires: ['Sodium'],
+    condition: (v, r) => v['Sodium'] < r['Sodium'].low },
+  { id: 'hypernatremia', name: 'High Sodium (Hypernatremia)', severity: 'warning',
+    description: 'Sodium above range — may indicate dehydration.',
+    requires: ['Sodium'],
+    condition: (v, r) => v['Sodium'] > r['Sodium'].high },
+  { id: 'hypokalemia', name: 'Low Potassium (Hypokalemia)', severity: 'alert',
+    description: 'Potassium below range — may affect heart rhythm and muscle function.',
+    requires: ['Potassium'],
+    condition: (v, r) => v['Potassium'] < r['Potassium'].low },
+  { id: 'hyperkalemia', name: 'High Potassium (Hyperkalemia)', severity: 'alert',
+    description: 'Potassium above range — may affect heart rhythm. Urgent if significantly elevated.',
+    requires: ['Potassium'],
+    condition: (v, r) => v['Potassium'] > r['Potassium'].high },
+  { id: 'electrolyte_imbalance', name: 'Electrolyte Imbalance', severity: 'warning',
+    description: 'Both sodium and potassium out of range — suggests systemic electrolyte disturbance.',
+    requires: ['Sodium', 'Potassium'],
+    condition: (v, r) => (v['Sodium'] < r['Sodium'].low || v['Sodium'] > r['Sodium'].high) &&
+                          (v['Potassium'] < r['Potassium'].low || v['Potassium'] > r['Potassium'].high) },
+
+  // Bone & Calcium (36-39)
+  { id: 'hypocalcemia', name: 'Low Calcium', severity: 'warning',
+    description: 'Calcium below range — may cause muscle cramps, tingling, or bone issues.',
+    requires: ['Calcium'],
+    condition: (v, r) => v['Calcium'] < r['Calcium'].low },
+  { id: 'hypercalcemia', name: 'High Calcium', severity: 'warning',
+    description: 'Calcium above range — may indicate hyperparathyroidism or other conditions.',
+    requires: ['Calcium'],
+    condition: (v, r) => v['Calcium'] > r['Calcium'].high },
+  { id: 'hyperparathyroid', name: 'Possible Hyperparathyroidism', severity: 'warning',
+    description: 'Elevated calcium with low phosphate is a classic pattern for hyperparathyroidism.',
+    requires: ['Calcium', 'Phosphate'],
+    condition: (v, r) => v['Calcium'] > r['Calcium'].high && v['Phosphate'] < r['Phosphate'].low },
+  { id: 'phosphate_imbalance', name: 'Phosphate Imbalance', severity: 'info',
+    description: 'Phosphate outside reference range.',
+    requires: ['Phosphate'],
+    condition: (v, r) => v['Phosphate'] < r['Phosphate'].low || v['Phosphate'] > r['Phosphate'].high },
+
+  // Inflammation (40-42)
+  { id: 'elevated_crp', name: 'Elevated CRP', severity: 'warning',
+    description: 'CRP above range indicates inflammation in the body.',
+    requires: ['CRP'],
+    condition: (v, r) => v['CRP'] > r['CRP'].high },
+  { id: 'acute_inflammation', name: 'Acute Inflammation', severity: 'alert',
+    description: 'CRP significantly elevated (>10 mg/L) — suggests acute infection or inflammation.',
+    requires: ['CRP'],
+    condition: (v, r) => v['CRP'] > 10 },
+  { id: 'inflammation_anemia', name: 'Inflammation with Anemia', severity: 'warning',
+    description: 'Elevated CRP with low haemoglobin — chronic inflammation may be suppressing red cell production.',
+    requires: ['CRP', 'Haemoglobin'],
+    condition: (v, r) => v['CRP'] > r['CRP'].high && v['Haemoglobin'] < r['Haemoglobin'].low },
+
+  // Autoimmune (43-45)
+  { id: 'celiac_positive', name: 'Celiac Screen Positive', severity: 'alert',
+    description: 'Elevated anti-TTG IgA antibodies — may indicate celiac disease. Requires confirmation.',
+    requires: ['anti TTG IgA'],
+    condition: (v, r) => v['anti TTG IgA'] > r['anti TTG IgA'].high },
+  { id: 'iga_deficiency', name: 'IgA Deficiency', severity: 'info',
+    description: 'Low IgA levels — note that anti-TTG IgA may be falsely negative with IgA deficiency.',
+    requires: ['IgA'],
+    condition: (v, r) => v['IgA'] < r['IgA'].low },
+  { id: 'pernicious_anemia', name: 'Intrinsic Factor Antibodies (Pernicious Anemia)', severity: 'warning',
+    description: 'Positive intrinsic factor antibodies suggest pernicious anemia affecting B12 absorption.',
+    requires: ['Intrinsic Factor'],
+    condition: (v, r) => v['Intrinsic Factor'] > r['Intrinsic Factor'].high },
+
+  // B12 & Folate (46-47)
+  { id: 'low_folate', name: 'Folate Deficiency', severity: 'warning',
+    description: 'Folate below range — may cause macrocytic anemia and fatigue.',
+    requires: ['Folate'],
+    condition: (v, r) => v['Folate'] < r['Folate'].low },
+  { id: 'folate_macrocytosis', name: 'Folate Deficiency with Macrocytosis', severity: 'warning',
+    description: 'Low folate with high MCV — folate deficiency causing enlarged red blood cells.',
+    requires: ['Folate', 'MCV'],
+    condition: (v, r) => v['Folate'] < r['Folate'].low && v['MCV'] > r['MCV'].high },
+
+  // Endocrine (48)
+  { id: 'elevated_cortisol', name: 'Elevated Cortisol', severity: 'info',
+    description: 'Serum cortisol above range — may indicate stress response or Cushing\'s pattern.',
+    requires: ['Serum Cortisol'],
+    condition: (v, r) => v['Serum Cortisol'] > r['Serum Cortisol'].high },
+
+  // Cross-system (49-50)
+  { id: 'liver_kidney_combined', name: 'Combined Liver-Kidney Stress', severity: 'alert',
+    description: 'Abnormal liver enzymes with reduced kidney function — multiple organ stress.',
+    requires: ['ALT', 'eGFR'],
+    condition: (v, r) => v['ALT'] > r['ALT'].high && v['eGFR'] < r['eGFR'].low },
+  { id: 'multi_system_alert', name: 'Multi-System Alert', severity: 'alert',
+    description: 'Three or more systems show out-of-range values — consider comprehensive review.',
+    requires: ['Haemoglobin', 'ALT', 'eGFR', 'TSH'],
+    condition: (v, r) => {
+      let count = 0;
+      if (v['Haemoglobin'] < r['Haemoglobin'].low) count++;
+      if (v['ALT'] > r['ALT'].high) count++;
+      if (v['eGFR'] < r['eGFR'].low) count++;
+      if (v['TSH'] < r['TSH'].low || v['TSH'] > r['TSH'].high) count++;
+      return count >= 3;
+    }},
+];
+
+// ─── State ───────────────────────────────────────────────────────────
+let rawResults = [];
+let testData = {};     // { testName: { unit, readings, latest, refLow, refHigh, status } }
+let viewMode = 'alphabetical';
+let expandedTest = null;
+let showAnalysis = false;
+let detailCharts = {};
 
 const COLORS = [
   '#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899',
@@ -98,7 +496,7 @@ const COLORS = [
   '#8b5cf6','#0ea5e9','#d946ef','#facc15','#10b981','#f43f5e',
 ];
 
-// ─── File Upload ────────────────────────────────────────────────────
+// ─── File Upload ─────────────────────────────────────────────────────
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
 const uploadStatus = document.getElementById('uploadStatus');
@@ -128,273 +526,366 @@ async function handleFile(file) {
 
     rawResults = data.results;
     uploadStatus.className = 'mt-3 text-sm text-green-400';
-    uploadStatus.textContent = `✓ Loaded ${rawResults.length} results from ${file.name}`;
+    uploadStatus.textContent = `Loaded ${rawResults.length} results from ${file.name}`;
 
-    buildUI();
+    buildTestData();
+    render();
     document.getElementById('mainContent').classList.remove('hidden');
   } catch (err) {
     uploadStatus.className = 'mt-3 text-sm text-red-400';
-    uploadStatus.textContent = `✗ ${err.message}`;
+    uploadStatus.textContent = `Error: ${err.message}`;
   }
 }
 
-// ─── Build Grouped Test Selector ────────────────────────────────────
+// ─── Data Processing ─────────────────────────────────────────────────
 
-function getTestGroups() {
-  // Build: { groupName: { testName: { unit, readings: [...], refLow, refHigh } } }
-  const groups = {};
+function resolveTestName(name) {
+  const lower = name.toLowerCase().trim();
+  return TEST_ALIASES[lower] || name;
+}
+
+function buildTestData() {
+  testData = {};
   for (const r of rawResults) {
-    if (!groups[r.testGroup]) groups[r.testGroup] = {};
-    if (!groups[r.testGroup][r.testName]) {
-      groups[r.testGroup][r.testName] = { unit: r.unit, readings: [], refLow: r.refLow, refHigh: r.refHigh };
+    const name = r.testName;
+    if (!testData[name]) {
+      testData[name] = {
+        unit: r.unit,
+        readings: [],
+        refLow: r.refLow,
+        refHigh: r.refHigh,
+      };
     }
-    groups[r.testGroup][r.testName].readings.push({ date: r.date, value: r.value });
+    testData[name].readings.push({ date: r.date, value: r.value });
+    // Update ref ranges if we get non-null values
+    if (r.refLow != null) testData[name].refLow = r.refLow;
+    if (r.refHigh != null) testData[name].refHigh = r.refHigh;
   }
-  return groups;
+  // Compute latest value and status
+  for (const [name, data] of Object.entries(testData)) {
+    data.readings.sort((a, b) => a.date.localeCompare(b.date));
+    const last = data.readings[data.readings.length - 1];
+    data.latest = last.value;
+    data.latestDate = last.date;
+    data.status = getStatus(last.value, data.refLow, data.refHigh);
+  }
 }
 
-function buildUI() {
-  const groups = getTestGroups();
-  const selector = document.getElementById('testSelector');
-  selector.innerHTML = '';
+function getStatus(value, low, high) {
+  if (low == null && high == null) return 'unknown';
+  if (low != null && value < low) return 'low';
+  if (high != null && value > high) return 'high';
+  return 'normal';
+}
 
-  const sortedGroups = Object.keys(groups).sort();
+function getStatusLabel(status) {
+  switch (status) {
+    case 'normal': return 'Normal';
+    case 'high': return 'High';
+    case 'low': return 'Low';
+    default: return '—';
+  }
+}
 
-  sortedGroups.forEach(groupName => {
-    const tests = groups[groupName];
-    const testNames = Object.keys(tests).sort();
-    const safeGroup = groupName.replace(/[^a-zA-Z0-9]/g, '_');
+function getStatusDot(status) {
+  const cls = `status-${status}`;
+  return `<span class="${cls} font-semibold text-xs">${getStatusLabel(status)}</span>`;
+}
 
-    // Group header with collapse toggle
-    const groupDiv = document.createElement('div');
-    groupDiv.className = 'mb-3';
-    groupDiv.innerHTML = `
-      <div class="group-header flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer"
-           onclick="toggleGroupCollapse('${safeGroup}')">
-        <div class="flex items-center gap-2">
-          <span id="arrow_${safeGroup}" class="text-gray-500 text-xs transition-transform">▶</span>
-          <span class="text-sm font-semibold text-blue-400">${groupName}</span>
+// ─── Clinical Group Mapping ──────────────────────────────────────────
+
+// Keyword-to-group fallback for tests not explicitly listed
+const GROUP_KEYWORDS = {
+  'lipids': ['cholesterol', 'triglyceride', 'lipid', 'hdl', 'ldl', 'chol/hdl'],
+  'liver': ['bilirubin', 'hepatitis'],
+  'fbc': ['blood count'],
+};
+
+function getTestClinicalGroup(testName) {
+  const resolved = resolveTestName(testName);
+  const lower = testName.toLowerCase();
+  const resolvedLower = resolved.toLowerCase();
+
+  // Exact match against group test lists
+  for (const group of CLINICAL_GROUPS) {
+    if (group.tests.some(t => t.toLowerCase() === resolvedLower || t.toLowerCase() === lower)) {
+      return group;
+    }
+  }
+
+  // Keyword fallback
+  for (const [groupId, keywords] of Object.entries(GROUP_KEYWORDS)) {
+    if (keywords.some(kw => lower.includes(kw))) {
+      return CLINICAL_GROUPS.find(g => g.id === groupId) || null;
+    }
+  }
+
+  return null;
+}
+
+function getGroupedTests() {
+  // Returns: { groupId: { group, tests: { testName: testData } } }
+  const grouped = {};
+  const ungrouped = {};
+
+  for (const [name, data] of Object.entries(testData)) {
+    const group = getTestClinicalGroup(name);
+    if (group) {
+      if (!grouped[group.id]) grouped[group.id] = { group, tests: {} };
+      grouped[group.id].tests[name] = data;
+    } else {
+      ungrouped[name] = data;
+    }
+  }
+
+  // Sort groups by CLINICAL_GROUPS order
+  const result = [];
+  for (const g of CLINICAL_GROUPS) {
+    if (grouped[g.id]) result.push(grouped[g.id]);
+  }
+  if (Object.keys(ungrouped).length > 0) {
+    result.push({ group: { id: 'other', name: 'Other', icon: '📋' }, tests: ungrouped });
+  }
+  return result;
+}
+
+// ─── SVG Sparkline Generator ─────────────────────────────────────────
+
+function createSparkline(readings, refLow, refHigh, status) {
+  const w = 120, h = 30, pad = 2;
+  if (readings.length < 2) {
+    // Single point — just show a dot
+    const color = status === 'normal' ? '#22c55e' : status === 'high' ? '#ef4444' : status === 'low' ? '#f59e0b' : '#6b7280';
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+      <circle cx="${w/2}" cy="${h/2}" r="3" fill="${color}"/>
+    </svg>`;
+  }
+
+  const values = readings.map(r => r.value);
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+
+  // Expand range to include ref range if present
+  if (refLow != null) min = Math.min(min, refLow);
+  if (refHigh != null) max = Math.max(max, refHigh);
+
+  const range = max - min || 1;
+  const scaleX = (i) => pad + (i / (readings.length - 1)) * (w - 2 * pad);
+  const scaleY = (v) => h - pad - ((v - min) / range) * (h - 2 * pad);
+
+  let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
+
+  // Reference range band
+  if (refLow != null && refHigh != null) {
+    const y1 = scaleY(refHigh);
+    const y2 = scaleY(refLow);
+    svg += `<rect x="${pad}" y="${y1}" width="${w - 2*pad}" height="${y2 - y1}" fill="rgba(34,197,94,0.15)" rx="1"/>`;
+  }
+
+  // Line
+  const color = status === 'normal' ? '#22c55e' : status === 'high' ? '#ef4444' : status === 'low' ? '#f59e0b' : '#6b7280';
+  const points = readings.map((r, i) => `${scaleX(i)},${scaleY(r.value)}`).join(' ');
+  svg += `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+  // Latest point dot
+  const lastIdx = readings.length - 1;
+  svg += `<circle cx="${scaleX(lastIdx)}" cy="${scaleY(readings[lastIdx].value)}" r="2.5" fill="${color}"/>`;
+
+  svg += '</svg>';
+  return svg;
+}
+
+// ─── Test Card HTML ──────────────────────────────────────────────────
+
+function renderTestCard(name, data) {
+  const isExpanded = expandedTest === name;
+  const sparkline = createSparkline(data.readings, data.refLow, data.refHigh, data.status);
+  const safeName = name.replace(/[^a-zA-Z0-9]/g, '_');
+  const dateFormatted = formatDate(data.latestDate);
+  const refText = (data.refLow != null && data.refHigh != null)
+    ? `Ref: ${data.refLow} - ${data.refHigh}`
+    : '';
+
+  const cardClass = `card-${data.status}`;
+  const valueClass = data.status === 'high' ? 'value-high' : data.status === 'low' ? 'value-low' : '';
+
+  return `
+    <div class="test-card ${cardClass} bg-gray-900 rounded-xl border border-gray-800 overflow-hidden ${isExpanded ? 'expanded' : ''}">
+      <div class="px-4 py-3 cursor-pointer flex items-center gap-4" onclick="toggleExpand('${name.replace(/'/g, "\\'")}')">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            ${TEST_DESCRIPTIONS[name]
+              ? `<span class="font-medium test-name-tip">${name}<span class="tip-text">${TEST_DESCRIPTIONS[name]}</span></span>`
+              : `<span class="font-medium">${name}</span>`}
+            ${getStatusDot(data.status)}
+          </div>
+          <div class="text-xs text-gray-500 mt-0.5">
+            ${dateFormatted} ${refText ? '&middot; ' + refText : ''}
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <span class="text-lg font-semibold ${valueClass}">${data.latest}</span>
+          <span class="text-sm text-gray-400 ml-1">${data.unit}</span>
+        </div>
+        <div class="shrink-0">${sparkline}</div>
+        <div class="text-gray-500 text-xs shrink-0">${isExpanded ? '▼' : '▶'}</div>
+      </div>
+      ${isExpanded ? `
+        <div class="border-t border-gray-800 px-4 py-4">
+          <canvas id="detail_${safeName}" height="250"></canvas>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function formatDate(dateStr) {
+  try {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+// ─── View Rendering ──────────────────────────────────────────────────
+
+function render() {
+  const container = document.getElementById('testCards');
+
+  if (viewMode === 'alphabetical') {
+    renderAlphabetical(container);
+  } else {
+    renderGrouped(container);
+  }
+
+  // Render expanded chart if any
+  if (expandedTest && testData[expandedTest]) {
+    renderDetailChart(expandedTest, testData[expandedTest]);
+  }
+
+  // Render analysis if visible
+  if (showAnalysis) {
+    renderAnalysis();
+  }
+}
+
+function renderAlphabetical(container) {
+  const sortedNames = Object.keys(testData).sort((a, b) => a.localeCompare(b));
+  container.innerHTML = sortedNames.map(name => renderTestCard(name, testData[name])).join('');
+}
+
+function renderGrouped(container) {
+  const groups = getGroupedTests();
+  let html = '';
+
+  for (const { group, tests } of groups) {
+    const testNames = Object.keys(tests).sort((a, b) => a.localeCompare(b));
+    const safeId = group.id;
+
+    html += `
+      <div class="group-section mb-4">
+        <div class="flex items-center gap-2 mb-2 cursor-pointer px-2 py-1.5 rounded-lg hover:bg-gray-900"
+             onclick="toggleGroupSection('${safeId}')">
+          <span id="garrow_${safeId}" class="text-gray-500 text-xs transition-transform" style="transform:rotate(90deg)">▶</span>
+          <span class="text-lg">${group.icon}</span>
+          <span class="font-semibold text-blue-400">${group.name}</span>
           <span class="text-xs text-gray-500">(${testNames.length})</span>
         </div>
-        <div class="flex gap-1" onclick="event.stopPropagation()">
-          <button onclick="toggleGroupTests('${safeGroup}', true)" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400">all</button>
-          <button onclick="toggleGroupTests('${safeGroup}', false)" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400">none</button>
+        <div id="gsection_${safeId}" class="space-y-2 pl-2">
+          ${testNames.map(name => renderTestCard(name, tests[name])).join('')}
         </div>
       </div>
-      <div id="group_${safeGroup}" class="hidden pl-6 mt-1 space-y-0.5">
-        ${testNames.map(tn => {
-          const info = tests[tn];
-          const id = `chk_${safeGroup}_${tn.replace(/[^a-zA-Z0-9]/g, '_')}`;
-          return `
-            <label class="flex items-center gap-2 py-0.5 px-1 rounded hover:bg-gray-800 cursor-pointer text-sm">
-              <input type="checkbox" id="${id}"
-                     data-group="${groupName}" data-test="${tn}" data-unit="${info.unit}"
-                     data-reflow="${info.refLow ?? ''}" data-refhigh="${info.refHigh ?? ''}"
-                     onchange="onTestToggle()" class="accent-blue-500 rounded">
-              <span>${tn}</span>
-              <span class="text-gray-500 text-xs ml-auto">${info.unit}</span>
-            </label>
-          `;
-        }).join('')}
-      </div>
     `;
-    selector.appendChild(groupDiv);
-  });
+  }
 
-  // Build axis unit dropdowns from all unique units
-  const allUnits = [...new Set(rawResults.map(r => r.unit))].sort();
-  const leftSel = document.getElementById('leftAxis');
-  const rightSel = document.getElementById('rightAxis');
-  leftSel.innerHTML = '<option value="">— none —</option>';
-  rightSel.innerHTML = '<option value="">— none —</option>';
-  allUnits.forEach(u => {
-    leftSel.add(new Option(u, u));
-    rightSel.add(new Option(u, u));
-  });
+  container.innerHTML = html;
 }
 
-function toggleGroupCollapse(safeGroup) {
-  const el = document.getElementById(`group_${safeGroup}`);
-  const arrow = document.getElementById(`arrow_${safeGroup}`);
-  if (el.classList.contains('hidden')) {
-    el.classList.remove('hidden');
+function toggleGroupSection(safeId) {
+  const el = document.getElementById(`gsection_${safeId}`);
+  const arrow = document.getElementById(`garrow_${safeId}`);
+  if (el.style.display === 'none') {
+    el.style.display = '';
     arrow.style.transform = 'rotate(90deg)';
   } else {
-    el.classList.add('hidden');
+    el.style.display = 'none';
     arrow.style.transform = '';
   }
 }
 
-function toggleGroupTests(safeGroup, checked) {
-  // Also expand the group when selecting
-  const el = document.getElementById(`group_${safeGroup}`);
-  const arrow = document.getElementById(`arrow_${safeGroup}`);
-  if (checked && el.classList.contains('hidden')) {
-    el.classList.remove('hidden');
-    arrow.style.transform = 'rotate(90deg)';
+// ─── Detail Chart ────────────────────────────────────────────────────
+
+function toggleExpand(testName) {
+  if (expandedTest === testName) {
+    expandedTest = null;
+  } else {
+    expandedTest = testName;
   }
-
-  el.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = checked);
-  onTestToggle();
-}
-
-function selectAll() {
-  document.querySelectorAll('#testSelector input[type=checkbox]').forEach(cb => cb.checked = true);
-  // Expand all groups
-  document.querySelectorAll('#testSelector [id^=group_]').forEach(el => el.classList.remove('hidden'));
-  document.querySelectorAll('#testSelector [id^=arrow_]').forEach(el => el.style.transform = 'rotate(90deg)');
-  onTestToggle();
-}
-
-function selectNone() {
-  document.querySelectorAll('#testSelector input[type=checkbox]').forEach(cb => cb.checked = false);
-  onTestToggle();
-}
-
-function swapAxes() {
-  const l = document.getElementById('leftAxis');
-  const r = document.getElementById('rightAxis');
-  const tmp = l.value;
-  l.value = r.value;
-  r.value = tmp;
-  updateChart();
-}
-
-// ─── Auto-detect best axis units from selection ─────────────────────
-
-function onTestToggle() {
-  // Get unique units from selected tests
-  const selected = getSelectedTests();
-  const units = [...new Set(selected.map(s => s.unit))];
-
-  // Auto-set axis dropdowns to the first 2 unique units
-  const leftSel = document.getElementById('leftAxis');
-  const rightSel = document.getElementById('rightAxis');
-
-  if (units.length >= 1) leftSel.value = units[0];
-  if (units.length >= 2) rightSel.value = units[1];
-  else rightSel.value = '';
-
-  updateChart();
-}
-
-function getSelectedTests() {
-  const selected = [];
-  document.querySelectorAll('#testSelector input[type=checkbox]:checked').forEach(cb => {
-    selected.push({
-      group: cb.dataset.group,
-      test: cb.dataset.test,
-      unit: cb.dataset.unit,
-      refLow: cb.dataset.reflow ? parseFloat(cb.dataset.reflow) : null,
-      refHigh: cb.dataset.refhigh ? parseFloat(cb.dataset.refhigh) : null,
-    });
-  });
-  return selected;
-}
-
-// ─── Chart Rendering ────────────────────────────────────────────────
-
-function updateChart() {
-  const leftUnit = document.getElementById('leftAxis').value;
-  const rightUnit = document.getElementById('rightAxis').value;
-  const selected = getSelectedTests();
-
-  // Filter to tests matching either axis unit
-  const visible = selected.filter(s =>
-    s.unit === leftUnit || s.unit === rightUnit
-  );
-
-  // Build lookup: testName -> readings
-  const groups = getTestGroups();
-  const testReadings = {};
-  for (const g of Object.values(groups)) {
-    for (const [tn, info] of Object.entries(g)) {
-      testReadings[tn] = info.readings;
-    }
+  // Destroy any existing detail charts
+  for (const [k, c] of Object.entries(detailCharts)) {
+    c.destroy();
+    delete detailCharts[k];
   }
+  render();
+}
 
-  // Build datasets
-  const datasets = [];
+function renderDetailChart(testName, data) {
+  const safeName = testName.replace(/[^a-zA-Z0-9]/g, '_');
+  const canvas = document.getElementById(`detail_${safeName}`);
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const color = data.status === 'normal' ? '#22c55e' : data.status === 'high' ? '#ef4444' : data.status === 'low' ? '#f59e0b' : '#3b82f6';
+
   const annotations = {};
-  let colorIdx = 0;
-
-  visible.forEach(({ test, unit, refLow, refHigh }) => {
-    const readings = testReadings[test] || [];
-    if (!readings.length) return;
-
-    const color = COLORS[colorIdx % COLORS.length];
-    const isRight = unit === rightUnit && leftUnit !== rightUnit;
-
-    datasets.push({
-      label: test,
-      data: readings.map(r => ({ x: r.date, y: r.value })),
-      borderColor: color,
-      backgroundColor: color + '33',
-      borderWidth: 2,
-      pointRadius: 4,
-      pointHoverRadius: 6,
-      tension: 0.3,
-      yAxisID: isRight ? 'yRight' : 'yLeft',
-    });
-
-    // Reference range band
-    if (refLow != null && refHigh != null) {
-      annotations[`ref_${test.replace(/\s/g, '_')}`] = {
-        type: 'box',
-        yMin: refLow,
-        yMax: refHigh,
-        yScaleID: isRight ? 'yRight' : 'yLeft',
-        backgroundColor: color + '0D',
-        borderColor: color + '30',
-        borderWidth: 1,
-      };
-    }
-
-    colorIdx++;
-  });
-
-  // Update legend
-  const legendDiv = document.getElementById('chartLegend');
-  legendDiv.innerHTML = datasets.map(ds => {
-    const side = ds.yAxisID === 'yRight' ? 'R' : 'L';
-    return `<span class="flex items-center gap-1.5 bg-gray-900 border border-gray-800 rounded-full px-3 py-1">
-      <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${ds.borderColor}"></span>
-      ${ds.label}
-      <span class="text-gray-500">${side}</span>
-    </span>`;
-  }).join('');
-
-  const hasLeft = datasets.some(d => d.yAxisID === 'yLeft');
-  const hasRight = datasets.some(d => d.yAxisID === 'yRight');
-
-  // Destroy old chart
-  if (chart) chart.destroy();
-
-  if (!datasets.length) {
-    const ctx = document.getElementById('labChart').getContext('2d');
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    return;
+  if (data.refLow != null && data.refHigh != null) {
+    annotations.refBand = {
+      type: 'box',
+      yMin: data.refLow,
+      yMax: data.refHigh,
+      backgroundColor: 'rgba(34,197,94,0.08)',
+      borderColor: 'rgba(34,197,94,0.25)',
+      borderWidth: 1,
+      label: {
+        content: 'Reference Range',
+        display: true,
+        position: 'start',
+        color: '#6b7280',
+        font: { size: 10 },
+      }
+    };
   }
 
-  const ctx = document.getElementById('labChart').getContext('2d');
-  chart = new Chart(ctx, {
+  const chart = new Chart(ctx, {
     type: 'line',
-    data: { datasets },
+    data: {
+      datasets: [{
+        label: testName,
+        data: data.readings.map(r => ({ x: r.date, y: r.value })),
+        borderColor: color,
+        backgroundColor: color + '33',
+        borderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: color,
+        tension: 0.3,
+        fill: false,
+      }]
+    },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: { mode: 'nearest', intersect: false },
       plugins: {
         legend: { display: false },
         annotation: { annotations },
         tooltip: {
           callbacks: {
-            title: items => items[0]?.raw?.x || '',
-            label: item => {
-              const ds = item.dataset;
-              const unit = ds.yAxisID === 'yRight' ? rightUnit : leftUnit;
-              return `${ds.label}: ${item.parsed.y} ${unit}`;
-            }
+            title: items => {
+              if (!items[0]?.raw?.x) return '';
+              return formatDate(items[0].raw.x);
+            },
+            label: item => `${testName}: ${item.parsed.y} ${data.unit}`
           }
         }
       },
@@ -405,25 +896,188 @@ function updateChart() {
           grid: { color: '#1f2937' },
           ticks: { color: '#9ca3af' },
         },
-        yLeft: {
-          type: 'linear',
-          position: 'left',
-          display: hasLeft,
-          title: { display: hasLeft, text: leftUnit, color: '#60a5fa', font: { size: 14, weight: 'bold' } },
+        y: {
+          title: { display: true, text: data.unit, color: '#9ca3af', font: { size: 12 } },
           grid: { color: '#1f2937' },
-          ticks: { color: '#60a5fa' },
-        },
-        yRight: {
-          type: 'linear',
-          position: 'right',
-          display: hasRight && leftUnit !== rightUnit,
-          title: { display: hasRight, text: rightUnit, color: '#f87171', font: { size: 14, weight: 'bold' } },
-          grid: { drawOnChartArea: false },
-          ticks: { color: '#f87171' },
+          ticks: { color: '#9ca3af' },
         }
       }
     }
   });
+
+  detailCharts[safeName] = chart;
+}
+
+// ─── View Mode Toggle ────────────────────────────────────────────────
+
+function setViewMode(mode) {
+  viewMode = mode;
+  expandedTest = null;
+  for (const [k, c] of Object.entries(detailCharts)) {
+    c.destroy();
+    delete detailCharts[k];
+  }
+
+  document.getElementById('btnAlpha').classList.toggle('active', mode === 'alphabetical');
+  document.getElementById('btnAlpha').classList.toggle('text-gray-400', mode !== 'alphabetical');
+  document.getElementById('btnGrouped').classList.toggle('active', mode === 'grouped');
+  document.getElementById('btnGrouped').classList.toggle('text-gray-400', mode !== 'grouped');
+
+  render();
+}
+
+// ─── Axis Analysis ───────────────────────────────────────────────────
+
+function toggleAnalysis() {
+  showAnalysis = !showAnalysis;
+  const panel = document.getElementById('analysisPanel');
+  const btn = document.getElementById('btnAnalysis');
+
+  if (showAnalysis) {
+    panel.classList.remove('hidden');
+    btn.classList.add('bg-blue-600', 'border-blue-500', 'text-white');
+    btn.classList.remove('bg-gray-900', 'border-gray-700');
+    renderAnalysis();
+  } else {
+    panel.classList.add('hidden');
+    btn.classList.remove('bg-blue-600', 'border-blue-500', 'text-white');
+    btn.classList.add('bg-gray-900', 'border-gray-700');
+  }
+}
+
+function evaluatePatterns() {
+  const triggered = [];
+  const notTriggered = [];
+  const insufficient = [];
+
+  for (const pattern of AXIS_PATTERNS) {
+    // Check if all required tests exist
+    const hasAll = pattern.requires.every(t => {
+      // Try direct match first, then try case-insensitive
+      if (testData[t]) return true;
+      for (const name of Object.keys(testData)) {
+        if (name.toLowerCase() === t.toLowerCase()) return true;
+      }
+      return false;
+    });
+
+    if (!hasAll) {
+      insufficient.push(pattern);
+      continue;
+    }
+
+    // Build values and refs
+    const vals = {};
+    const refs = {};
+    for (const t of pattern.requires) {
+      let d = testData[t];
+      if (!d) {
+        // Case-insensitive fallback
+        for (const [name, data] of Object.entries(testData)) {
+          if (name.toLowerCase() === t.toLowerCase()) { d = data; break; }
+        }
+      }
+      if (!d) { insufficient.push(pattern); continue; }
+      vals[t] = d.latest;
+      refs[t] = { low: d.refLow, high: d.refHigh };
+    }
+
+    // Check if we have ref ranges needed
+    const hasRefs = pattern.requires.every(t => refs[t] && (refs[t].low != null || refs[t].high != null));
+    if (!hasRefs) {
+      // Some patterns work without full refs (e.g., absolute thresholds)
+      // Try to evaluate anyway
+    }
+
+    try {
+      if (pattern.condition(vals, refs)) {
+        triggered.push(pattern);
+      } else {
+        notTriggered.push(pattern);
+      }
+    } catch {
+      insufficient.push(pattern);
+    }
+  }
+
+  return { triggered, notTriggered, insufficient };
+}
+
+function renderAnalysis() {
+  const content = document.getElementById('analysisContent');
+  const { triggered, notTriggered, insufficient } = evaluatePatterns();
+
+  let html = '';
+
+  if (triggered.length > 0) {
+    html += `<h3 class="font-semibold text-sm text-gray-300 mb-2">Patterns Detected (${triggered.length})</h3>`;
+    html += `<div class="space-y-2 mb-4">`;
+    for (const p of triggered) {
+      const sevClass = `severity-${p.severity}`;
+      const sevIcon = p.severity === 'alert' ? '🔴' : p.severity === 'warning' ? '🟡' : '🔵';
+      html += `
+        <div class="pattern-triggered ${sevClass} bg-gray-800 rounded-lg px-4 py-3">
+          <div class="flex items-center gap-2">
+            <span>${sevIcon}</span>
+            <span class="font-medium text-sm">${p.name}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 uppercase">${p.severity}</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-1 ml-6">${p.description}</p>
+          <p class="text-[10px] text-gray-600 mt-1 ml-6">Tests: ${p.requires.join(', ')}</p>
+        </div>
+      `;
+    }
+    html += '</div>';
+  } else {
+    html += `<div class="text-sm text-green-400 mb-4 px-2">No concerning patterns detected in your results.</div>`;
+  }
+
+  // Summary
+  const evaluated = triggered.length + notTriggered.length;
+  html += `<div class="text-xs text-gray-500 px-2 mb-3">
+    ${evaluated} pattern${evaluated !== 1 ? 's' : ''} evaluated &middot;
+    ${triggered.length} triggered &middot;
+    ${insufficient.length} could not be evaluated (missing tests)
+  </div>`;
+
+  // Collapsible: patterns not triggered
+  if (notTriggered.length > 0) {
+    html += `
+      <details class="mb-2">
+        <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-400 px-2">
+          ${notTriggered.length} patterns not triggered (click to view)
+        </summary>
+        <div class="space-y-1 mt-2">
+          ${notTriggered.map(p => `
+            <div class="pattern-not-triggered bg-gray-800 rounded-lg px-4 py-2">
+              <span class="text-xs text-gray-500">${p.name}</span>
+            </div>
+          `).join('')}
+        </div>
+      </details>
+    `;
+  }
+
+  // Collapsible: insufficient data
+  if (insufficient.length > 0) {
+    html += `
+      <details>
+        <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-400 px-2">
+          ${insufficient.length} patterns need additional tests (click to view)
+        </summary>
+        <div class="space-y-1 mt-2">
+          ${insufficient.map(p => `
+            <div class="pattern-missing bg-gray-800 rounded-lg px-4 py-2">
+              <div class="text-xs text-gray-300">${p.name}</div>
+              <div class="text-[10px] text-gray-400">Needs: ${p.requires.join(', ')}</div>
+            </div>
+          `).join('')}
+        </div>
+      </details>
+    `;
+  }
+
+  content.innerHTML = html;
 }
 </script>
 </body>
