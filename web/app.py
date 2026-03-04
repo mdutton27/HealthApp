@@ -248,6 +248,7 @@ _NAME_CANONICAL = {
     "total bilirubin": "Bilirubin",
     "direct bilirubin": "Direct Bilirubin",
     "hepatitis a total ab": "Hepatitis A Total Ab",
+    "vitamin b12": "B12",
 }
 
 def _normalize_test_name(name: str) -> str:
