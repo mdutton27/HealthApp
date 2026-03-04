@@ -891,7 +891,7 @@ function renderTestCard(name, data) {
   const valueClass = data.status === 'high' ? 'value-high' : data.status === 'low' ? 'value-low' : '';
 
   return `
-    <div class="test-card ${cardClass} bg-gray-900 rounded-xl border border-gray-800 overflow-hidden ${isExpanded ? 'expanded' : ''}">
+    <div class="test-card ${cardClass} bg-gray-900 rounded-xl border border-gray-800 ${isExpanded ? 'expanded overflow-hidden' : 'overflow-visible'}">
       <div class="px-4 py-3 cursor-pointer flex items-center gap-4" onclick="toggleExpand('${name.replace(/'/g, "\\'")}')">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
