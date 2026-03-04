@@ -48,15 +48,85 @@
     .test-name-tip:hover .tip-text { visibility: visible; opacity: 1; }
     .sex-btn.active { background-color: #3b82f6; color: white; }
     .sex-badge { font-size: 10px; opacity: 0.6; margin-left: 4px; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .modal-box { background: #111827; border: 1px solid #374151; border-radius: 1rem; max-width: 640px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 2rem; }
+    .modal-box h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; }
+    .modal-box h3 { font-size: 1rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; color: #93c5fd; }
+    .modal-box p { font-size: 0.875rem; color: #d1d5db; line-height: 1.6; margin-bottom: 0.75rem; }
+    .modal-box ul { font-size: 0.875rem; color: #d1d5db; line-height: 1.6; margin-bottom: 0.75rem; padding-left: 1.25rem; }
+    .modal-box li { margin-bottom: 0.25rem; list-style-type: disc; }
+    .modal-box .test-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; margin: 0.75rem 0; }
+    .modal-box .test-table th { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid #374151; color: #9ca3af; font-weight: 500; }
+    .modal-box .test-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #1f2937; color: #d1d5db; }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
 
   <!-- Header -->
-  <header class="border-b border-gray-800 px-6 py-4">
-    <h1 class="text-2xl font-bold">Lab Results Viewer</h1>
-    <p class="text-sm text-gray-400">Upload your XML or CSV lab results to visualise trends</p>
+  <header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Lab Results Viewer</h1>
+      <p class="text-sm text-gray-400">Upload your XML or CSV lab results to visualise trends</p>
+    </div>
+    <button onclick="document.getElementById('aboutModal').classList.remove('hidden')"
+            class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 transition-colors">
+      About
+    </button>
   </header>
+
+  <!-- About Modal -->
+  <div id="aboutModal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="modal-box">
+      <div class="flex items-center justify-between mb-2">
+        <h2>About Lab Results Viewer</h2>
+        <button onclick="document.getElementById('aboutModal').classList.add('hidden')"
+                class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+
+      <p>This tool helps you visualise and understand your lab test results over time. Upload a CSV or XML export from your health portal (e.g. ManageMyHealth) and see trends, reference ranges, and clinical patterns at a glance.</p>
+
+      <h3>📊 Sex-Specific Reference Ranges</h3>
+      <p>Many lab tests have different normal ranges depending on biological sex. Reference ranges from your doctor or lab should already be tailored to your age and sex — in most cases they will be accurate as-is.</p>
+      <p>However, some exports provide generic ranges or omit them entirely. The <strong>Male / Female</strong> toggle lets you apply population-specific reference ranges to the following 14 tests:</p>
+
+      <table class="test-table">
+        <thead><tr><th>Test</th><th>Male Range</th><th>Female Range</th></tr></thead>
+        <tbody>
+          <tr><td>Haemoglobin</td><td>130 – 175 g/L</td><td>115 – 155 g/L</td></tr>
+          <tr><td>Haematocrit</td><td>0.40 – 0.54</td><td>0.36 – 0.46</td></tr>
+          <tr><td>Red Blood Cells</td><td>4.5 – 6.5</td><td>3.8 – 5.8</td></tr>
+          <tr><td>Ferritin</td><td>30 – 300 µg/L</td><td>15 – 200 µg/L</td></tr>
+          <tr><td>Iron</td><td>10 – 30 µmol/L</td><td>8 – 28 µmol/L</td></tr>
+          <tr><td>Creatinine</td><td>60 – 105 µmol/L</td><td>45 – 90 µmol/L</td></tr>
+          <tr><td>Testosterone</td><td>8.0 – 29.0 nmol/L</td><td>0.2 – 1.8 nmol/L</td></tr>
+          <tr><td>ALT</td><td>10 – 50 U/L</td><td>10 – 35 U/L</td></tr>
+          <tr><td>AST</td><td>10 – 50 U/L</td><td>10 – 35 U/L</td></tr>
+          <tr><td>GGT</td><td>10 – 71 U/L</td><td>6 – 42 U/L</td></tr>
+          <tr><td>Urate</td><td>0.20 – 0.42 mmol/L</td><td>0.14 – 0.34 mmol/L</td></tr>
+          <tr><td>Alkaline Phosphatase</td><td>40 – 130 U/L</td><td>35 – 105 U/L</td></tr>
+        </tbody>
+      </table>
+
+      <p>When "Default" is selected, the app uses whatever ranges came with your uploaded file. These values are based on standard NZ adult reference intervals.</p>
+
+      <h3>⚗️ Axis Analysis</h3>
+      <p>The Axis Analysis feature is an <strong>experimental educational tool</strong> that looks for patterns across multiple test results. It evaluates 50 clinical patterns by comparing your latest values against reference ranges — for example, detecting possible iron deficiency when both ferritin and haemoglobin are low.</p>
+      <p>Each pattern is categorised by severity:</p>
+      <ul>
+        <li><strong style="color:#3b82f6">Info</strong> — Observations worth noting but not necessarily concerning</li>
+        <li><strong style="color:#f59e0b">Warning</strong> — Patterns that may warrant further discussion with your doctor</li>
+        <li><strong style="color:#ef4444">Alert</strong> — Significant patterns that should be reviewed by a healthcare professional</li>
+      </ul>
+      <p>Patterns that require tests you haven't uploaded are shown as greyed out with the missing tests listed.</p>
+
+      <h3>⚠️ Disclaimer</h3>
+      <p style="color:#fbbf24">This tool is for <strong>informational and educational purposes only</strong>. It is not a medical device and does not provide medical advice, diagnosis, or treatment. Always consult your doctor or qualified healthcare professional for interpretation of lab results and medical decisions.</p>
+
+      <div class="mt-6 pt-4 border-t border-gray-800 text-xs text-gray-600">
+        Built with Flask, Chart.js & Tailwind CSS.
+      </div>
+    </div>
+  </div>
 
   <main class="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-6">
 
