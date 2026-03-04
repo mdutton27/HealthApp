@@ -215,7 +215,8 @@ const SEX_AGE_RANGES = {
 // ─── Clinical Group Definitions ──────────────────────────────────────
 const CLINICAL_GROUPS = [
   { id: 'fbc', name: 'Full Blood Count', icon: '🩸',
-    tests: ['Haemoglobin', 'Haematocrit', 'MCV', 'MCH', 'Red Blood Cells', 'White Blood Cells', 'Platelets', 'RBC', 'WBC'] },
+    tests: ['Haemoglobin', 'Haematocrit', 'Hct', 'MCV', 'MCH', 'Red Blood Cells', 'White Blood Cells', 'Platelets', 'RBC', 'WBC',
+            'Neutrophils', 'Lymphocytes', 'Monocytes', 'Eosinophils', 'Basophils', 'Reticulocytes', 'NRBCs'] },
   { id: 'iron', name: 'Iron Metabolism', icon: '⚙️',
     tests: ['Iron', 'Ferritin', 'Transferrin', 'Transferrin saturation', 'Haptoglobin', 'TIBC', 'Serum Iron'] },
   { id: 'b12folate', name: 'B12 & Folate', icon: '💊',
@@ -235,7 +236,7 @@ const CLINICAL_GROUPS = [
   { id: 'inflammation', name: 'Inflammation', icon: '🔥',
     tests: ['CRP', 'ESR', 'hs-CRP', 'High Sensitivity CRP'] },
   { id: 'autoimmune', name: 'Autoimmune', icon: '🛡️',
-    tests: ['anti TTG IgA', 'IgA', 'Intrinsic Factor', 'ANA', 'Rheumatoid Factor', 'Anti-CCP'] },
+    tests: ['anti TTG IgA', 'IgA', 'Intrinsic Factor', 'ANA', 'Rheumatoid Factor', 'Anti-CCP', 'anti-HBs', 'Hepatitis A Total Ab'] },
   { id: 'endocrine', name: 'Endocrine', icon: '🎯',
     tests: ['Serum Cortisol', 'Cortisol', 'Insulin', 'HbA1c', 'Glucose', 'C-Peptide'] },
   { id: 'lipids', name: 'Lipids', icon: '🫀',
@@ -255,6 +256,9 @@ const TEST_ALIASES = {
   'hb': 'Haemoglobin', 'hemoglobin': 'Haemoglobin', 'haemoglobin': 'Haemoglobin',
   'hct': 'Haematocrit', 'hematocrit': 'Haematocrit',
   'rbc': 'Red Blood Cells', 'wbc': 'White Blood Cells',
+  'nrbcs': 'NRBCs', 'nucleated rbcs': 'NRBCs', 'nucleated red blood cells': 'NRBCs',
+  'retics': 'Reticulocytes', 'reticulocyte count': 'Reticulocytes',
+  'anti-hbs': 'anti-HBs', 'hepatitis b antibody': 'anti-HBs', 'hbs antibody': 'anti-HBs',
   'tsat': 'Transferrin saturation', 'transferrin sat': 'Transferrin saturation',
   'alt': 'ALT', 'sgpt': 'ALT', 'alanine aminotransferase': 'ALT',
   'ast': 'AST', 'sgot': 'AST', 'aspartate aminotransferase': 'AST',
@@ -283,12 +287,13 @@ const TEST_DESCRIPTIONS = {
   'RBC': 'Red Blood Cell count — the number of red blood cells per litre of blood.',
   'WBC': 'White Blood Cell count — cells that fight infection. High may indicate infection or inflammation.',
   'Platelets': 'Small blood cells that help your blood clot. Low levels increase bleeding risk.',
-  'Neutrophils': 'The most common white blood cell. First responders to bacterial infections.',
-  'Lymphocytes': 'White blood cells key to immune response, including fighting viruses and producing antibodies.',
-  'Monocytes': 'White blood cells that engulf and destroy pathogens and dead cells.',
-  'Eosinophils': 'White blood cells involved in allergic responses and fighting parasites.',
-  'Basophils': 'Rarest white blood cells, involved in allergic and inflammatory reactions.',
-  'NRBCS': 'Nucleated Red Blood Cells — immature red cells not normally seen in blood. Can indicate bone marrow stress.',
+  'Neutrophils': 'The most common white blood cell — first responders to bacterial infections. High may indicate infection, inflammation, or steroid use. Low may suggest viral infection or bone marrow suppression.',
+  'Lymphocytes': 'White blood cells key to adaptive immunity (T cells, B cells, NK cells). High in viral infections (EBV, CMV, COVID). Low with stress, corticosteroids, or immune suppression.',
+  'Monocytes': 'White blood cells that become macrophages in tissues — clean up dead cells and present antigens. High in chronic infection, autoimmune disease, or recovery phase of infection.',
+  'Eosinophils': 'White blood cells involved in defense against parasites and allergic responses. High in allergies, asthma, parasitic infections, and some autoimmune disorders.',
+  'Basophils': 'Rarest white blood cells — release histamine and participate in allergic and inflammatory reactions. Elevated in allergies, chronic inflammation, and some myeloproliferative diseases.',
+  'Reticulocytes': 'Immature red blood cells released from bone marrow — shows how actively your marrow is making RBCs. High after blood loss or hemolysis. Low suggests marrow suppression or nutrient deficiency.',
+  'NRBCs': 'Nucleated Red Blood Cells — very immature red cells normally absent in adults. Presence can indicate severe bone marrow stress, severe anemia, or sepsis.',
   // Iron
   'Iron': 'Serum iron level — the amount of iron circulating in your blood, needed for oxygen transport.',
   'Ferritin': 'A protein that stores iron. The best single marker of your body\'s total iron stores.',
@@ -300,7 +305,7 @@ const TEST_DESCRIPTIONS = {
   'Vitamin B12': 'Essential for nerve function and red blood cell formation. Deficiency causes fatigue and neurological issues.',
   // Liver
   'Bilirubin': 'A yellow pigment from red blood cell breakdown, processed by the liver. High levels can cause jaundice.',
-  'Alkaline phosphatase': 'An enzyme found in liver and bone. Elevated levels may indicate liver or bone disease.',
+  'Alkaline phosphatase': 'An enzyme found mainly in liver bile ducts and bone. High may indicate bile duct obstruction, liver disease, or bone disorders. Low is rare but can suggest malnutrition or hypothyroidism.',
   'GGT': 'Gamma-glutamyl transferase — a liver enzyme. Elevated levels often relate to alcohol use or bile duct issues.',
   'ALT': 'Alanine aminotransferase — a liver enzyme. Elevated levels indicate liver cell damage.',
   'AST': 'Aspartate aminotransferase — found in liver, heart, and muscle. Elevated with tissue damage.',
@@ -340,6 +345,8 @@ const TEST_DESCRIPTIONS = {
   'anti TTG IgA': 'Anti-tissue transglutaminase IgA — the primary screening test for coeliac disease.',
   'IgA': 'Immunoglobulin A — an antibody important for mucosal immunity. Low levels can cause false-negative coeliac tests.',
   'Intrinsic Factor': 'Antibodies against intrinsic factor, which is needed to absorb Vitamin B12. Positive in pernicious anemia.',
+  'anti-HBs': 'Antibodies against Hepatitis B surface antigen. Positive means immunity to Hepatitis B from vaccination or past infection. Negative means no immunity.',
+  'Hepatitis A Total Ab': 'Antibodies against Hepatitis A virus. Positive indicates past infection or vaccination providing immunity.',
   // Endocrine
   'Serum Cortisol': 'The body\'s primary stress hormone. Follows a daily rhythm — highest in morning, lowest at night.',
   'HbA1c': 'Glycated haemoglobin — reflects your average blood sugar over the past 2-3 months. Used to screen for diabetes.',
@@ -769,8 +776,9 @@ function getStatusDot(status) {
 // Keyword-to-group fallback for tests not explicitly listed
 const GROUP_KEYWORDS = {
   'lipids': ['cholesterol', 'triglyceride', 'lipid', 'hdl', 'ldl', 'chol/hdl'],
-  'liver': ['bilirubin', 'hepatitis'],
-  'fbc': ['blood count'],
+  'liver': ['bilirubin'],
+  'fbc': ['blood count', 'neutrophil', 'lymphocyte', 'monocyte', 'eosinophil', 'basophil', 'reticulocyte', 'nrbc'],
+  'autoimmune': ['hepatitis', 'anti-hb'],
 };
 
 function getTestClinicalGroup(testName) {
