@@ -231,6 +231,8 @@ _JUNK_PATTERNS = [
     "text patient", "admission time", "admission date", "collection time",
     "collection date", "fasting status", "not stated", "lmp:", "lmp",
     "specimen", "comment", "interpretation", "ttg iga interpretation",
+    "discharge", "phone", "visit number", "nok ", "next of kin",
+    "ward", "bed number", "clinician", "referring",
 ]
 
 def _is_junk_test(name: str) -> bool:
